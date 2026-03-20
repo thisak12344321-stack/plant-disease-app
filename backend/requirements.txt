@@ -7,3 +7,5 @@ passlib[bcrypt]==1.7.4
 sqlalchemy==2.0.35
 pymongo==4.8.0
 torch==2.10.0
+torchvision==0.25.0
+python-dotenv==1.2.2
