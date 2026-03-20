@@ -174,7 +174,7 @@ class_names = list(class_data.keys())
 num_classes = len(class_names)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "C:/Users/Khada/plant-disease-app/backend/model/plant_model.pt"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
 
 # -------------------------------
