@@ -40,7 +40,9 @@ EMAIL_PASS = os.getenv("EMAIL_PASS")
 # -------------------------------
 # MONGODB
 # -------------------------------
-client = MongoClient("mongodb://127.0.0.1:27017")
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+
 db = client.plantdoc
 users_collection = db.users
 
