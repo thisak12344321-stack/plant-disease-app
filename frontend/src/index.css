@@ -1,0 +1,144 @@
+/* GLOBAL BACKGROUND - Plant themed gradient */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: "Poppins", sans-serif;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c7744);
+  color: #e8f5e9;
+}
+
+/* App container */
+.app-container{
+  width:100%;
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+/* Center content */
+#center{
+  display:flex;
+  flex-direction:column;
+  gap:30px;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:1200px;
+  padding:40px;
+}
+
+/* Plant glass cards */
+.card{
+  background:rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border-radius:16px;
+  padding:30px;
+  border:1px solid rgba(255,255,255,0.15);
+  box-shadow:0 10px 25px rgba(0,0,0,0.4);
+  transition: all 0.35s ease;
+}
+
+.card:hover{
+  transform: translateY(-6px);
+  box-shadow:0 20px 40px rgba(0,0,0,0.6);
+}
+
+/* Buttons */
+button{
+  background:linear-gradient(135deg,#3bb78f,#0bab64);
+  border:none;
+  padding:12px 26px;
+  border-radius:10px;
+  color:white;
+  font-size:16px;
+  font-weight:500;
+  cursor:pointer;
+  transition: all 0.3s ease;
+  box-shadow:0 6px 18px rgba(0,0,0,0.3);
+}
+
+button:hover{
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:0 10px 24px rgba(0,0,0,0.45);
+}
+
+button:active{
+  transform: scale(0.96);
+}
+
+/* Upload area */
+.upload-box{
+  border:2px dashed rgba(255,255,255,0.4);
+  border-radius:16px;
+  padding:40px;
+  text-align:center;
+  transition: all 0.3s ease;
+}
+
+.upload-box:hover{
+  border-color:#66bb6a;
+  background:rgba(255,255,255,0.05);
+}
+
+/* Result highlight */
+.result-box{
+  background:rgba(76,175,80,0.15);
+  border:1px solid rgba(76,175,80,0.4);
+  border-radius:12px;
+  padding:20px;
+  font-size:18px;
+  text-align:center;
+}
+
+/* Plant icon floating animation */
+.plant-icon{
+  font-size:60px;
+  animation: floatPlant 4s ease-in-out infinite;
+}
+
+@keyframes floatPlant{
+  0%{transform:translateY(0px);}
+  50%{transform:translateY(-10px);}
+  100%{transform:translateY(0px);}
+}
+
+/* Navigation buttons */
+.nav-buttons{
+  display:flex;
+  gap:15px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+
+/* Section title */
+.section-title{
+  font-size:32px;
+  font-weight:600;
+  color:#c8facc;
+  text-align:center;
+}
+
+/* Footer spacer */
+#spacer{
+  height:80px;
+}
+
+/* Responsive */
+@media(max-width:768px){
+
+#center{
+padding:25px;
+}
+
+.card{
+padding:20px;
+}
+
+.section-title{
+font-size:24px;
+}
+
+}
