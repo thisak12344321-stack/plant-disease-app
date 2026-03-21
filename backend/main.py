@@ -10,12 +10,12 @@ import os
 import resend
 from dotenv import load_dotenv
 
-# Load environment variables (Render ignores .env)
+# Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
-# ✅ FIXED: Use ENVIRONMENT VARIABLE ONLY (set in Render dashboard)
+# ✅ CORRECT RESEND INITIALIZATION (module-level)
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-resend_client = resend.Resend(api_key=RESEND_API_KEY)
+resend.api_key = RESEND_API_KEY  # ← THIS WORKS!
 
 print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
 print(os.listdir())
@@ -41,32 +41,33 @@ users_collection = db.users
 otp_store = {}
 
 # -------------------------------
-# RESEND EMAIL FUNCTION
+# RESEND EMAIL FUNCTION (NO CLIENT NEEDED)
 # -------------------------------
 def send_email_otp(to_email: str, otp: str):
-    """Send OTP via Resend API (Render free tier compatible)"""
+    """Send OTP via Resend API - Render free tier compatible"""
     try:
         if not RESEND_API_KEY:
             print("❌ RESEND_API_KEY missing - skipping email")
             return
             
-        resend_client.emails.send({
+        # ✅ CORRECT USAGE: resend.Emails.send()
+        resend.Emails.send({
             "from": "PlantDoc AI <noreply@plantdoc.app>",
             "to": to_email,
             "subject": "Your PlantDoc Login OTP",
             "text": f"Your PlantDoc OTP is: {otp}\nValid for 10 minutes.",
             "html": f"""
             <h2 style="color: #4CAF50;">Your PlantDoc Login OTP</h2>
-            <p style="font-size: 36px; font-weight: bold; color: #2196F3; letter-spacing: 4px;">{otp}</p>
-            <p>This OTP is valid for <strong>10 minutes</strong>.</p>
-            <hr style="border: 1px solid #333;">
-            <p style="color: #94a3b8; font-size: 14px;">Team PlantDoc</p>
+            <p style="font-size: 36px; font-weight: bold; color: #2196F3;">{otp}</p>
+            <p>Valid for <strong>10 minutes</strong>.</p>
+            <hr>
+            <p style="color: #94a3b8;">Team PlantDoc</p>
             """
         })
         print(f"✅ OTP sent to {to_email}")
         
     except Exception as e:
-        print(f"⚠️ Email failed (non-critical): {e}")
+        print(f"⚠️ Email failed: {e}")
 
 # -------------------------------
 # SEND OTP
@@ -146,7 +147,7 @@ async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     return {"message": "Password updated successfully"}
 
 # -------------------------------
-# PLANT DISEASE MODEL (UNCHANGED)
+# PLANT DISEASE MODEL
 # -------------------------------
 class_data = {
     "Pepper__bell___Bacterial_spot": {"plant":"Pepper", "disease":"Bacterial Spot", "symptoms":["Brown spots on leaves"], "treatment":["Use copper fungicide"], "prevention":["Remove infected leaves"], "additionalInfo":"Caused by Xanthomonas campestris"},
@@ -252,7 +253,7 @@ async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymen
 
     # Send confirmation email
     try:
-        resend_client.emails.send({
+        resend.Emails.send({
             "from": "PlantDoc AI <noreply@plantdoc.app>",
             "to": userEmail,
             "subject": f"Invoice for {product['name']}",
