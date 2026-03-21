@@ -7,22 +7,18 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ YOUR GNEWS API KEY (looks valid)
-  const API_KEY = 'f2d6d0f0b8664d1b17db4fd123e32c26';
+  // 🚀 Backend proxy URL (Render FastAPI)
+  const API_BASE = process.env.NODE_ENV === 'production' 
+    ? 'https://plant-disease-app-qigz.onrender.com'  // Replace with YOUR Render URL
+    : 'http://localhost:10000';
 
   const fetchFarmerNews = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get('https://gnews.io/api/v4/search', {
-        params: {
-          q: 'farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide',
-          lang: 'en',
-          country: 'in',
-          max: 20,
-          apikey: API_KEY
-        },
-        timeout: 10000 // 10s timeout
+      // ✅ FIXED: Use backend proxy (no CORS issues)
+      const response = await axios.get(`${API_BASE}/api/news`, {
+        timeout: 15000 // 15s for backend proxy
       });
 
       const gnewsArticles = response.data.articles || [];
@@ -34,7 +30,7 @@ export default function News() {
         (article.description && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.description)))
       );
 
-      // ✅ FIXED: Map GNews fields correctly
+      // Map GNews fields correctly
       const formattedArticles = filteredArticles.map(article => ({
         title: article.title || 'No title available',
         description: article.description || '',
@@ -53,15 +49,16 @@ export default function News() {
       console.log(`✅ Loaded ${formattedArticles.length} agriculture articles`);
       
     } catch (err) {
-      console.error('GNews Error Details:', {
+      console.error('News Error Details:', {
         status: err.response?.status,
         data: err.response?.data,
-        message: err.message
+        message: err.message,
+        url: `${API_BASE}/api/news`
       });
       
-      const errorMsg = err.response?.data?.message || 
-                      (err.code === 'ECONNABORTED' ? 'Request timeout - slow connection' : 
-                      'Failed to fetch news. Check internet or try refresh.');
+      const errorMsg = err.response?.status === 503 ? 'Backend service starting up...' :
+                      err.code === 'ECONNABORTED' ? 'Request timeout - slow connection' :
+                      'News service temporarily unavailable. Try refresh.';
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -100,7 +97,7 @@ export default function News() {
           100% { transform: rotate(360deg); } 
         }
         
-        .refreshBtn:disabled {
+        button:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
@@ -117,8 +114,8 @@ export default function News() {
         <div style={styles.actionRow}>
           <button 
             onClick={fetchFarmerNews} 
-            style={{...styles.refreshBtn, ...(loading && styles.refreshBtnDisabled)}}
             disabled={loading}
+            style={styles.refreshBtn}
           >
             {loading ? '🔄 Updating...' : '🔄 Refresh News'}
           </button>
@@ -130,10 +127,7 @@ export default function News() {
           <div style={styles.errorBox}>
             <p style={{ margin: 0 }}>{error}</p>
             <p style={styles.errorSubtext}>
-              F12 → Console for detailed error | 
-              <a href="https://gnews.io/" target="_blank" rel="noopener noreferrer" style={styles.errorLink}>
-                {' '}Check quota
-              </a>
+              Backend: {API_BASE}
             </p>
           </div>
         )}
@@ -206,7 +200,6 @@ export default function News() {
   );
 }
 
-// ✅ COMPLETE FIXED STYLES
 const styles = {
   wrapper: {
     minHeight: '100vh',
@@ -250,11 +243,6 @@ const styles = {
     transition: 'all 0.3s ease',
     backdropFilter: 'blur(10px)'
   },
-  refreshBtnDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-    background: 'rgba(74, 222, 128, 0.05)'
-  },
 
   newsGrid: {
     display: 'grid',
@@ -291,8 +279,7 @@ const styles = {
     display: 'flex', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    fontSize: '3rem',
-    position: 'relative'
+    fontSize: '3rem'
   },
   sourceBadge: { 
     position: 'absolute', 
@@ -350,11 +337,7 @@ const styles = {
     color: '#4ADE80', 
     textDecoration: 'none', 
     fontSize: '0.9rem', 
-    fontWeight: '700',
-    transition: 'color 0.3s ease'
-  },
-  readMoreHover: {
-    color: '#22C55E'
+    fontWeight: '700'
   },
   
   errorBox: { 
@@ -371,11 +354,6 @@ const styles = {
     fontSize: '0.85rem', 
     marginTop: '12px', 
     color: '#FBBF24'
-  },
-  errorLink: {
-    color: '#4ADE80', 
-    textDecoration: 'none',
-    fontWeight: '600'
   },
   emptyText: { 
     textAlign: 'center', 
