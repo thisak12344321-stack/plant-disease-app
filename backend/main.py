@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 # Initialize Resend client
-resend_client = Resend(os.getenv("re_bzw8PBEk_FPZ5neuR2rhhhhNWMpwa8EAy"))
+resend_client = resend(os.getenv("re_bzw8PBEk_FPZ5neuR2rhhhhNWMpwa8EAy"))
 
 print("RESEND_API_KEY loaded:", bool(os.getenv("RESEND_API_KEY")))
 print(os.listdir())
