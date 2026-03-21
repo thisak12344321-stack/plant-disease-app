@@ -7,7 +7,7 @@ import torch
 from torchvision import transforms, models
 import random
 import os
-from resend import Resend
+import resend
 from dotenv import load_dotenv
 
 # Load environment variables
