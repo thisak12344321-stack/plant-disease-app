@@ -7,23 +7,50 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const API_KEY = 'ae32ca6303e240a5b817d4ff90fe011b';
+  // Get your FREE GNews API key from https://gnews.io/
+  const API_KEY = 'f2d6d0f0b8664d1b17db4fd123e32c26'; // Replace with your key
 
   const fetchFarmerNews = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get(
-        `https://newsapi.org/v2/everything?q=farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide&language=en&sortBy=publishedAt&pageSize=30&apiKey=${API_KEY}&domains=economictimes.indiatimes.com,livemint.com,ndtv.com,scroll.in`
+        `https://gnews.io/api/v4/search`,
+        {
+          params: {
+            q: 'farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide',
+            lang: 'en',
+            country: 'in', // India focus
+            max: 20,
+            apikey: API_KEY
+          }
+        }
       );
+
+      // GNews response structure is slightly different
+      const gnewsArticles = response.data.articles || [];
+      
+      // Filter for agriculture keywords (same logic)
       const keywords = ['farmer', 'farm', 'agriculture', 'plant disease', 'crop', 'crops', 'horticulture', 'pesticide', 'rural'];
-      const filteredArticles = response.data.articles.filter(article =>
+      const filteredArticles = gnewsArticles.filter(article =>
         (article.title && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.title))) ||
         (article.description && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.description)))
       );
-      setArticles(filteredArticles);
+
+      // Map GNews fields to match your existing UI
+      const formattedArticles = filteredArticles.map(article => ({
+        title: article.title,
+        description: article.description,
+        url: article.url,
+        urlToImage: article.image,
+        publishedAt: article.publishedAt,
+        source: { name: article.publisher?.name || article.source || 'News' }
+      }));
+
+      setArticles(formattedArticles);
     } catch (err) {
-      setError('Connection to agricultural wire failed. Please try again.');
+      console.error('GNews Error:', err.response?.data || err.message);
+      setError(err.response?.data?.message || 'Failed to fetch agricultural news. Please check API key.');
     } finally {
       setLoading(false);
     }
@@ -52,33 +79,37 @@ export default function News() {
 
       <div style={styles.container}>
         <header style={styles.header}>
-       
-          <h2 style={styles.heroTitle}><span style={{ color: '#4ADE80' }}>Latest news related to agriculture domain</span></h2>
+          <h2 style={styles.heroTitle}>
+            <span style={{ color: '#4ADE80' }}>Latest Agriculture News</span>
+          </h2>
           <div style={styles.divider} />
         </header>
 
         <div style={styles.actionRow}>
-          <button onClick={fetchFarmerNews} style={styles.refreshBtn}>
+          <button onClick={fetchFarmerNews} style={styles.refreshBtn} disabled={loading}>
             {loading ? 'Updating Feed...' : '🔄 Refresh News'}
           </button>
         </div>
 
         {loading && <div className="custom-loader" />}
-        
+
         {error && (
           <div style={styles.errorBox}>
             <p>{error}</p>
+            <p style={{ fontSize: '0.85rem', marginTop: '8px' }}>
+              Get free key: <a href="https://gnews.io/" target="_blank" style={{ color: '#4ADE80' }}>gnews.io</a>
+            </p>
           </div>
         )}
 
         <div style={styles.newsGrid}>
           {articles.length === 0 && !loading && !error && (
-            <p style={styles.emptyText}>No recent agricultural updates found in your region.</p>
+            <p style={styles.emptyText}>No recent agricultural updates found.</p>
           )}
 
           {articles.map((article, index) => (
             <motion.div 
-              key={index}
+              key={article.url || index}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
@@ -87,22 +118,24 @@ export default function News() {
             >
               <div style={styles.imageWrapper}>
                 {article.urlToImage ? (
-                  <img src={article.urlToImage} alt="" style={styles.newsImg} />
+                  <img src={article.urlToImage} alt={article.title} style={styles.newsImg} />
                 ) : (
                   <div style={styles.imgPlaceholder}>🌱</div>
                 )}
-                <div style={styles.sourceBadge}>{article.source.name}</div>
+                <div style={styles.sourceBadge}>{article.source?.name}</div>
               </div>
 
               <div style={styles.cardBody}>
                 <h3 style={styles.newsTitle}>{article.title}</h3>
                 <p style={styles.newsDesc}>
-                  {article.description ? (article.description.slice(0, 120) + '...') : 'Access the full report below.'}
+                  {article.description ? (article.description.slice(0, 120) + '...') : 'Read full report below.'}
                 </p>
                 
                 <div style={styles.cardFooter}>
                   <span style={styles.dateText}>
-                    {new Date(article.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString(undefined, { 
+                      month: 'short', day: 'numeric' 
+                    }) : 'Recent'}
                   </span>
                   <a href={article.url} target="_blank" rel="noopener noreferrer" style={styles.readMore}>
                     Read Report →
@@ -117,17 +150,17 @@ export default function News() {
   );
 }
 
+// Same styles - no changes needed
 const styles = {
   wrapper: {
     minHeight: '100vh',
-    background: '#0A120E', // Match Results page background
+    background: '#0A120E',
     color: '#F3F4F6',
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     padding: '40px 20px'
   },
   container: { maxWidth: '1100px', margin: '0 auto' },
   header: { textAlign: 'center', marginBottom: '40px' },
-  topBadge: { fontSize: '0.7rem', fontWeight: '800', color: '#4ADE80', letterSpacing: '2px', textTransform: 'uppercase' },
   heroTitle: { fontFamily: "'Fraunces', serif", fontSize: '3rem', margin: '10px 0', color: '#fff' },
   divider: { width: '40px', height: '4px', background: '#4ADE80', margin: '0 auto', borderRadius: '10px' },
   
@@ -153,7 +186,10 @@ const styles = {
   },
   imageWrapper: { position: 'relative', width: '100%', height: '200px' },
   newsImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  imgPlaceholder: { width: '100%', height: '100%', background: 'rgba(74, 222, 128, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' },
+  imgPlaceholder: { 
+    width: '100%', height: '100%', background: 'rgba(74, 222, 128, 0.05)', 
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' 
+  },
   sourceBadge: { 
     position: 'absolute', bottom: '12px', left: '12px', background: 'rgba(10, 18, 14, 0.8)',
     padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '700', color: '#4ADE80',
@@ -164,10 +200,12 @@ const styles = {
   newsTitle: { fontSize: '1.15rem', lineHeight: '1.4', fontWeight: '700', marginBottom: '12px', color: '#fff' },
   newsDesc: { fontSize: '0.9rem', color: '#9CA3AF', marginBottom: '20px', lineHeight: '1.6' },
   
-  cardFooter: { marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.05)' },
+  cardFooter: { marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+    paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.05)' },
   dateText: { fontSize: '0.75rem', color: '#6B7280', fontWeight: '600' },
   readMore: { color: '#4ADE80', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '700' },
   
-  errorBox: { textAlign: 'center', color: '#FCA5A5', background: 'rgba(252, 165, 165, 0.1)', padding: '15px', borderRadius: '12px', marginBottom: '30px' },
+  errorBox: { textAlign: 'center', color: '#FCA5A5', background: 'rgba(252, 165, 165, 0.1)', 
+    padding: '20px', borderRadius: '12px', marginBottom: '30px' },
   emptyText: { textAlign: 'center', gridColumn: '1/-1', color: '#6B7280', padding: '50px' }
 };
