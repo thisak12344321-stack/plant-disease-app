@@ -209,7 +209,7 @@ export default function Login({ goToPage, setUser }) {
   const handleSignup = async () => {
     if (!email || !password || !name) return setMessage('All fields are required');
     try {
-      const res = await fetch('http://localhost:8000/signup', {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/signup', {
         method: 'POST',
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ name, email, password })
@@ -226,7 +226,7 @@ export default function Login({ goToPage, setUser }) {
     if (!email.trim()) return setMessage('Please enter your email');
     setMessage('Sending code...');
     try {
-      const res = await fetch('http://localhost:8000/send-otp', {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/send-otp', {
         method: 'POST',
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ email: email.toLowerCase().trim() })
@@ -242,7 +242,7 @@ export default function Login({ goToPage, setUser }) {
   const verifyOTP = async () => {
     if (!otp) return setMessage('Enter verification code');
     try {
-      const verifyRes = await fetch('http://localhost:8000/verify-otp', {
+      const verifyRes = await fetch('https://plant-disease-app-qigz.onrender.com/verify-otp', {
         method: 'POST',
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ email: email.toLowerCase().trim(), otp })
@@ -262,7 +262,7 @@ export default function Login({ goToPage, setUser }) {
 
   const completeLogin = async () => {
     try {
-      const loginRes = await fetch('http://localhost:8000/login', {
+      const loginRes = await fetch('https://plant-disease-app-qigz.onrender.com/login', {
         method: 'POST',
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ email: email.toLowerCase().trim(), password })
@@ -279,7 +279,7 @@ export default function Login({ goToPage, setUser }) {
   const handlePasswordReset = async () => {
     if (!password) return setMessage('Please enter a new password');
     try {
-      const res = await fetch('http://localhost:8000/reset-password', {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/reset-password', {
         method: 'POST',
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ email: email.toLowerCase().trim(), new_password: password })

@@ -41,7 +41,7 @@ function App() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("http://127.0.0.1:8000/predict", {
+      const res = await fetch("https://plant-disease-app-qigz.onrender.com/predict", {
         method: "POST",
         body: formData
       });

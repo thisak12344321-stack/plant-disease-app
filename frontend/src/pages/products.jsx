@@ -83,7 +83,7 @@ export default function Products({
     };
 
     try {
-      const res = await fetch("http://localhost:8000/offline-order", {
+      const res = await fetch("https://plant-disease-app-qigz.onrender.com/offline-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userEmail: user.email, order })
@@ -128,7 +128,7 @@ export default function Products({
           paymentId: response.razorpay_payment_id
         };
 
-        const res = await fetch("http://localhost:8000/purchase", {
+        const res = await fetch("https://plant-disease-app-qigz.onrender.com/purchase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userEmail: user.email, product: purchasedItem, paymentDetails: response })
