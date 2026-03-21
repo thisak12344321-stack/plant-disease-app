@@ -15,7 +15,7 @@ export default function Results({ result, goToPage }) {
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
-          backgroundColor: '#050806', // Matches your obsidian green/black
+          backgroundColor: '#000000', // Matches your obsidian green/black
           logging: false 
         },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
