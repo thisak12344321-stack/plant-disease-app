@@ -288,43 +288,64 @@ async def offline_order(data: dict = Body(...)):
     
     users_collection.update_one({"email": userEmail}, {"$push": {"purchasedItems": order}})
     return {"message": "Order placed successfully (COD)"}
+
+@app.get("/api/news")
+async def get_agriculture_news():
+    """📰 GNews proxy - BETTER queries for India agriculture news"""
+    GNEWS_KEY = os.getenv("GNEWS_API_KEY")
+    if not GNEWS_KEY:
+        return {"articles": [], "totalResults": 0, "message": "News config missing"}
+    
+    # ✅ TRY 3 PROVEN QUERIES (India agriculture news)
+    queries = [
+        "India farmer news",      # Most reliable
+        "Indian agriculture",     # Official sources  
+        "farmers India"           # Farmer protests/crisis
+    ]
+    
+    url = "https://gnews.io/api/v4/search"
+    
+    for query in queries:
+        params = {
+            "q": query,
+            "lang": "en",
+            "country": "in", 
+            "max": 15,
+            "apikey": GNEWS_KEY
+        }
+        
+        try:
+            print(f"🔍 Trying query: '{query}'")
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                articles = data.get('articles', [])
+                print(f"✅ '{query}' → {len(articles)} articles")
+                
+                if articles:  # Found articles!
+                    print(f"🎉 Using query '{query}' with {len(articles)} articles")
+                    return data
+            
+        except Exception as e:
+            print(f"❌ Query '{query}' failed: {e}")
+            continue
+    
+    # Fallback: Broader search
+    print("🔄 Trying fallback query...")
+    params = {"q": "news India", "lang": "en", "country": "in", "max": 10, "apikey": GNEWS_KEY}
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        print(f"📄 Fallback: {len(data.get('articles', []))} articles")
+        return data
+    except:
+        pass
+        
+    return {"articles": [], "totalResults": 0, "message": "No recent agriculture news found"}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
 
-
-
-@app.get("/api/news")
-async def get_agriculture_news():
-    """📰 GNews proxy - SIMPLIFIED query (fixes 400 error)"""
-    GNEWS_KEY = os.getenv("GNEWS_API_KEY")
-    if not GNEWS_KEY:
-        return {"articles": [], "totalResults": 0, "message": "News config missing"}
-    
-    # ✅ SIMPLIFIED query - GNews doesn't like complex OR chains
-    url = "https://gnews.io/api/v4/search"
-    params = {
-        "q": "agriculture farming crops India",  # Simple space-separated (acts as AND)
-        "lang": "en",
-        "country": "in",
-        "max": 20,
-        "apikey": GNEWS_KEY
-    }
-    
-    try:
-        print(f"Fetching news with query: {params['q']}")
-        response = requests.get(url, params=params, timeout=15)
-        print(f"GNews response status: {response.status_code}")
-        
-        response.raise_for_status()
-        data = response.json()
-        print(f"✅ News fetched: {len(data.get('articles', []))} articles")
-        return data
-        
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ GNews HTTP {e.response.status_code}: {e.response.text}")
-        return {"articles": [], "totalResults": 0, "message": "News API error"}
-    except Exception as e:
-        print(f"❌ News proxy error: {e}")
-        return {"articles": [], "totalResults": 0, "message": "News temporarily unavailable"}
