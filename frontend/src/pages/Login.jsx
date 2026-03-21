@@ -206,91 +206,95 @@ export default function Login({ goToPage, setUser }) {
   }, [setUser, goToPage]);
 
   // Original Handlers (Logic strictly preserved)
-  const handleSignup = async () => {
-    if (!email || !password || !name) return setMessage('All fields are required');
-    try {
-      const res = await fetch('https://plant-disease-app-qigz.onrender.com/signup', {
-        method: 'POST',
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ name, email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Signup failed');
-      setMessage('Account created! You can now sign in.');
+// SIGNUP
+const handleSignup = async () => {
+  if (!email || !password || !name) return setMessage('All fields are required');
+  try {
+    const res = await fetch('https://plant-disease-app-qigz.onrender.com/signup', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email: email.toLowerCase().trim(), password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Signup failed');
+    setMessage('Account created! You can now sign in.');
+    setPage('login');
+    setName('');
+  } catch (err) { setMessage(err.message); }
+};
+
+// SEND OTP
+const handleSendOTP = async (isLogin = false) => {
+  if (!email.trim()) return setMessage('Please enter your email');
+  setMessage('Sending code...');
+  try {
+    const res = await fetch('https://plant-disease-app-qigz.onrender.com/send-otp', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase().trim() })
+    });
+    if (!res.ok) throw new Error('Failed to send code');
+    setMessage('Verification code sent to email');
+    setPage('otp');
+    setResendTimer(30);
+    setIsLoginFlow(isLogin);
+  } catch (err) { setMessage(err.message); }
+};
+
+// VERIFY OTP
+const verifyOTP = async () => {
+  if (!otp) return setMessage('Enter verification code');
+  try {
+    const verifyRes = await fetch('https://plant-disease-app-qigz.onrender.com/verify-otp', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase().trim(), otp })
+    });
+    if (!verifyRes.ok) throw new Error('Invalid or expired code');
+    if (isLoginFlow && password) {
+      completeLogin();
+    } else if (isLoginFlow) {
+      setMessage('Code verified. Please enter your password.');
       setPage('login');
-      setName('');
-    } catch (err) { setMessage(err.message); }
-  };
+    } else {
+      setPage('reset');
+      setMessage('Code verified. Enter your new password.');
+    }
+  } catch (err) { setMessage(err.message); }
+};
 
-  const handleSendOTP = async (isLogin = false) => {
-    if (!email.trim()) return setMessage('Please enter your email');
-    setMessage('Sending code...');
-    try {
-      const res = await fetch('https://plant-disease-app-qigz.onrender.com/send-otp', {
-        method: 'POST',
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ email: email.toLowerCase().trim() })
-      });
-      if (!res.ok) throw new Error('Failed to send code');
-      setMessage('Verification code sent to email');
-      setPage('otp');
-      setResendTimer(30);
-      setIsLoginFlow(isLogin);
-    } catch (err) { setMessage(err.message); }
-  };
+// COMPLETE LOGIN
+const completeLogin = async () => {
+  try {
+    const loginRes = await fetch('https://plant-disease-app-qigz.onrender.com/login', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase().trim(), password })
+    });
+    const userData = await loginRes.json();
+    if (loginRes.ok) {
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+      goToPage('home');
+    } else throw new Error(userData.detail || 'Login failed');
+  } catch (err) { setMessage(err.message); }
+};
 
-  const verifyOTP = async () => {
-    if (!otp) return setMessage('Enter verification code');
-    try {
-      const verifyRes = await fetch('https://plant-disease-app-qigz.onrender.com/verify-otp', {
-        method: 'POST',
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ email: email.toLowerCase().trim(), otp })
-      });
-      if (!verifyRes.ok) throw new Error('Invalid or expired code');
-      if (isLoginFlow && password) {
-        completeLogin();
-      } else if (isLoginFlow) {
-        setMessage('Code verified. Please enter your password.');
-        setPage('login');
-      } else {
-        setPage('reset');
-        setMessage('Code verified. Enter your new password.');
-      }
-    } catch (err) { setMessage(err.message); }
-  };
-
-  const completeLogin = async () => {
-    try {
-      const loginRes = await fetch('https://plant-disease-app-qigz.onrender.com/login', {
-        method: 'POST',
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ email: email.toLowerCase().trim(), password })
-      });
-      const userData = await loginRes.json();
-      if (loginRes.ok) {
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
-        goToPage('home');
-      } else throw new Error(userData.detail || 'Login failed');
-    } catch (err) { setMessage(err.message); }
-  };
-
-  const handlePasswordReset = async () => {
-    if (!password) return setMessage('Please enter a new password');
-    try {
-      const res = await fetch('https://plant-disease-app-qigz.onrender.com/reset-password', {
-        method: 'POST',
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ email: email.toLowerCase().trim(), new_password: password })
-      });
-      if (!res.ok) throw new Error('Failed to update password');
-      setMessage('Password updated! Please login.');
-      setPage('login');
-      setPassword('');
-    } catch (err) { setMessage(err.message); }
-  };
-
+// PASSWORD RESET
+const handlePasswordReset = async () => {
+  if (!password) return setMessage('Please enter a new password');
+  try {
+    const res = await fetch('https://plant-disease-app-qigz.onrender.com/reset-password', {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase().trim(), new_password: password })
+    });
+    if (!res.ok) throw new Error('Failed to update password');
+    setMessage('Password updated! Please login.');
+    setPage('login');
+    setPassword('');
+  } catch (err) { setMessage(err.message); }
+};
   return (
     <div style={styles.fullScreenOverlay}>
       <style>{`
