@@ -291,3 +291,27 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
+@app.get("/api/news")
+async def get_agriculture_news():
+    """📰 GNews proxy - fixes Vercel CORS"""
+    GNEWS_KEY = os.getenv("GNEWS_API_KEY")
+    if not GNEWS_KEY:
+        raise HTTPException(500, "News service unavailable")
+    
+    url = "https://gnews.io/api/v4/search"
+    params = {
+        "q": 'farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide',
+        "lang": "en",
+        "country": "in",
+        "max": 20,
+        "apikey": GNEWS_KEY
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"News proxy error: {e}")
+        return {"articles": [], "message": "News temporarily unavailable"}
