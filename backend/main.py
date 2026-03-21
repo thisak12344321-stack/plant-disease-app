@@ -287,3 +287,7 @@ async def offline_order(data: dict = Body(...)):
     
     users_collection.update_one({"email": userEmail}, {"$push": {"purchasedItems": order}})
     return {"message": "Order placed successfully (COD)"}
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
