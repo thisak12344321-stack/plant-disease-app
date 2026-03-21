@@ -346,6 +346,12 @@ async def get_agriculture_news():
 
 if __name__ == "__main__":
     import uvicorn
+    # ✅ Render requires: host="0.0.0.0" + PORT env var
     port = int(os.getenv("PORT", 10000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
-
+    print(f"🚀 Starting server on 0.0.0.0:{port}")
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0",  # ← CRITICAL: Bind to ALL interfaces
+        port=port,       # ← CRITICAL: Use Render PORT env var
+        reload=False
+    )
