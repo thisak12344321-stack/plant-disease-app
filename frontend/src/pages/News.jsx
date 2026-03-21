@@ -7,56 +7,67 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Get your FREE GNews API key from https://gnews.io/
-  const API_KEY = 'f2d6d0f0b8664d1b17db4fd123e32c26'; // Replace with your key
+  // ✅ YOUR GNEWS API KEY (looks valid)
+  const API_KEY = 'f2d6d0f0b8664d1b17db4fd123e32c26';
 
   const fetchFarmerNews = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(
-        `https://gnews.io/api/v4/search`,
-        {
-          params: {
-            q: 'farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide',
-            lang: 'en',
-            country: 'in', // India focus
-            max: 20,
-            apikey: API_KEY
-          }
-        }
-      );
+      const response = await axios.get('https://gnews.io/api/v4/search', {
+        params: {
+          q: 'farmer OR farming OR agriculture OR "plant disease" OR crops OR horticulture OR pesticide',
+          lang: 'en',
+          country: 'in',
+          max: 20,
+          apikey: API_KEY
+        },
+        timeout: 10000 // 10s timeout
+      });
 
-      // GNews response structure is slightly different
       const gnewsArticles = response.data.articles || [];
       
-      // Filter for agriculture keywords (same logic)
+      // Filter agriculture keywords
       const keywords = ['farmer', 'farm', 'agriculture', 'plant disease', 'crop', 'crops', 'horticulture', 'pesticide', 'rural'];
       const filteredArticles = gnewsArticles.filter(article =>
         (article.title && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.title))) ||
         (article.description && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.description)))
       );
 
-      // Map GNews fields to match your existing UI
+      // ✅ FIXED: Map GNews fields correctly
       const formattedArticles = filteredArticles.map(article => ({
-        title: article.title,
-        description: article.description,
-        url: article.url,
-        urlToImage: article.image,
-        publishedAt: article.publishedAt,
-        source: { name: article.publisher?.name || article.source || 'News' }
+        title: article.title || 'No title available',
+        description: article.description || '',
+        url: article.url || '#',
+        urlToImage: article.image || null,
+        publishedAt: article.publishedAt || new Date().toISOString(),
+        source: { 
+          name: article.publisher?.name || 
+                article.source?.name || 
+                article.source || 
+                'Indian Agriculture News' 
+        }
       }));
 
       setArticles(formattedArticles);
+      console.log(`✅ Loaded ${formattedArticles.length} agriculture articles`);
+      
     } catch (err) {
-      console.error('GNews Error:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'Failed to fetch agricultural news. Please check API key.');
+      console.error('GNews Error Details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+      
+      const errorMsg = err.response?.data?.message || 
+                      (err.code === 'ECONNABORTED' ? 'Request timeout - slow connection' : 
+                      'Failed to fetch news. Check internet or try refresh.');
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial fetch on load
   useEffect(() => {
     fetchFarmerNews();
   }, []);
@@ -66,15 +77,33 @@ export default function News() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
         
-        .news-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .news-card:hover { transform: translateY(-8px); border-color: rgba(74, 222, 128, 0.3); }
+        .news-card { 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+          backdrop-filter: blur(10px);
+        }
+        .news-card:hover { 
+          transform: translateY(-8px); 
+          border-color: rgba(74, 222, 128, 0.5);
+          box-shadow: 0 20px 40px rgba(74, 222, 128, 0.15);
+        }
         
         .custom-loader {
-          width: 40px; height: 40px; border: 3px solid rgba(74, 222, 128, 0.1);
-          border-top: 3px solid #4ADE80; border-radius: 50%;
-          animation: spin 1s linear infinite; margin: 20px auto;
+          width: 40px; height: 40px; 
+          border: 3px solid rgba(74, 222, 128, 0.1);
+          border-top: 3px solid #4ADE80; 
+          border-radius: 50%;
+          animation: spin 1s linear infinite; 
+          margin: 20px auto;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { 
+          0% { transform: rotate(0deg); } 
+          100% { transform: rotate(360deg); } 
+        }
+        
+        .refreshBtn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
       `}</style>
 
       <div style={styles.container}>
@@ -86,30 +115,37 @@ export default function News() {
         </header>
 
         <div style={styles.actionRow}>
-          <button onClick={fetchFarmerNews} style={styles.refreshBtn} disabled={loading}>
-            {loading ? 'Updating Feed...' : '🔄 Refresh News'}
+          <button 
+            onClick={fetchFarmerNews} 
+            style={{...styles.refreshBtn, ...(loading && styles.refreshBtnDisabled)}}
+            disabled={loading}
+          >
+            {loading ? '🔄 Updating...' : '🔄 Refresh News'}
           </button>
         </div>
 
         {loading && <div className="custom-loader" />}
 
-        {error && (
+        {error && !loading && (
           <div style={styles.errorBox}>
-            <p>{error}</p>
-            <p style={{ fontSize: '0.85rem', marginTop: '8px' }}>
-              Get free key: <a href="https://gnews.io/" target="_blank" style={{ color: '#4ADE80' }}>gnews.io</a>
+            <p style={{ margin: 0 }}>{error}</p>
+            <p style={styles.errorSubtext}>
+              F12 → Console for detailed error | 
+              <a href="https://gnews.io/" target="_blank" rel="noopener noreferrer" style={styles.errorLink}>
+                {' '}Check quota
+              </a>
             </p>
           </div>
         )}
 
         <div style={styles.newsGrid}>
           {articles.length === 0 && !loading && !error && (
-            <p style={styles.emptyText}>No recent agricultural updates found.</p>
+            <p style={styles.emptyText}>No recent agricultural updates found in India.</p>
           )}
 
           {articles.map((article, index) => (
             <motion.div 
-              key={article.url || index}
+              key={`${article.url}-${index}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
@@ -118,27 +154,47 @@ export default function News() {
             >
               <div style={styles.imageWrapper}>
                 {article.urlToImage ? (
-                  <img src={article.urlToImage} alt={article.title} style={styles.newsImg} />
+                  <img 
+                    src={article.urlToImage} 
+                    alt={article.title.substring(0, 50)} 
+                    style={styles.newsImg}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
                 ) : (
                   <div style={styles.imgPlaceholder}>🌱</div>
                 )}
-                <div style={styles.sourceBadge}>{article.source?.name}</div>
+                <div style={styles.sourceBadge}>
+                  {article.source?.name?.substring(0, 20) || 'News'}
+                </div>
               </div>
 
               <div style={styles.cardBody}>
                 <h3 style={styles.newsTitle}>{article.title}</h3>
                 <p style={styles.newsDesc}>
-                  {article.description ? (article.description.slice(0, 120) + '...') : 'Read full report below.'}
+                  {article.description ? 
+                    `${article.description.slice(0, 120)}${article.description.length > 120 ? '...' : ''}` : 
+                    'Read the latest agricultural updates from India.'
+                  }
                 </p>
                 
                 <div style={styles.cardFooter}>
                   <span style={styles.dateText}>
-                    {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString(undefined, { 
-                      month: 'short', day: 'numeric' 
-                    }) : 'Recent'}
+                    {article.publishedAt ? 
+                      new Date(article.publishedAt).toLocaleDateString('en-IN', { 
+                        month: 'short', day: 'numeric', year: 'numeric' 
+                      }) : 'Recent'
+                    }
                   </span>
-                  <a href={article.url} target="_blank" rel="noopener noreferrer" style={styles.readMore}>
-                    Read Report →
+                  <a 
+                    href={article.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    style={styles.readMore}
+                  >
+                    Read →
                   </a>
                 </div>
               </div>
@@ -150,62 +206,182 @@ export default function News() {
   );
 }
 
-// Same styles - no changes needed
+// ✅ COMPLETE FIXED STYLES
 const styles = {
   wrapper: {
     minHeight: '100vh',
-    background: '#0A120E',
+    background: 'linear-gradient(135deg, #0A120E 0%, #1A1F14 100%)',
     color: '#F3F4F6',
     fontFamily: "'Plus Jakarta Sans', sans-serif",
-    padding: '40px 20px'
+    padding: '40px 20px',
+    position: 'relative',
+    overflow: 'hidden'
   },
-  container: { maxWidth: '1100px', margin: '0 auto' },
-  header: { textAlign: 'center', marginBottom: '40px' },
-  heroTitle: { fontFamily: "'Fraunces', serif", fontSize: '3rem', margin: '10px 0', color: '#fff' },
-  divider: { width: '40px', height: '4px', background: '#4ADE80', margin: '0 auto', borderRadius: '10px' },
+  container: { maxWidth: '1200px', margin: '0 auto' },
+  header: { textAlign: 'center', marginBottom: '50px' },
+  heroTitle: { 
+    fontFamily: "'Fraunces', serif", 
+    fontSize: 'clamp(2rem, 5vw, 3.5rem)', 
+    margin: '0 0 20px 0', 
+    color: '#fff',
+    textShadow: '0 4px 20px rgba(74, 222, 128, 0.3)'
+  },
+  divider: { 
+    width: '60px', height: '4px', 
+    background: 'linear-gradient(90deg, #4ADE80, #22C55E)', 
+    margin: '0 auto', 
+    borderRadius: '2px' 
+  },
   
-  actionRow: { display: 'flex', justifyContent: 'center', marginBottom: '50px' },
+  actionRow: { 
+    display: 'flex', 
+    justifyContent: 'center', 
+    marginBottom: '60px' 
+  },
   refreshBtn: {
-    padding: '12px 30px', borderRadius: '100px', border: '1px solid rgba(74, 222, 128, 0.4)',
-    background: 'rgba(74, 222, 128, 0.1)', color: '#4ADE80', fontWeight: '700', cursor: 'pointer',
-    transition: '0.3s'
+    padding: '14px 36px', 
+    borderRadius: '50px', 
+    border: '2px solid rgba(74, 222, 128, 0.4)',
+    background: 'rgba(74, 222, 128, 0.15)', 
+    color: '#4ADE80', 
+    fontWeight: '700', 
+    fontSize: '16px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    backdropFilter: 'blur(10px)'
+  },
+  refreshBtnDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed',
+    background: 'rgba(74, 222, 128, 0.05)'
   },
 
   newsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '25px'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+    gap: '30px',
+    marginTop: '20px'
   },
   card: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '24px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '28px',
     overflow: 'hidden',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    height: '100%',
+    backdropFilter: 'blur(20px)'
   },
-  imageWrapper: { position: 'relative', width: '100%', height: '200px' },
-  newsImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  imageWrapper: { 
+    position: 'relative', 
+    width: '100%', 
+    height: '220px',
+    overflow: 'hidden'
+  },
+  newsImg: { 
+    width: '100%', 
+    height: '100%', 
+    objectFit: 'cover',
+    transition: 'transform 0.3s ease'
+  },
   imgPlaceholder: { 
-    width: '100%', height: '100%', background: 'rgba(74, 222, 128, 0.05)', 
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' 
+    width: '100%', 
+    height: '100%', 
+    background: 'linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 197, 94, 0.05))', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    fontSize: '3rem',
+    position: 'relative'
   },
   sourceBadge: { 
-    position: 'absolute', bottom: '12px', left: '12px', background: 'rgba(10, 18, 14, 0.8)',
-    padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '700', color: '#4ADE80',
-    backdropFilter: 'blur(4px)'
+    position: 'absolute', 
+    bottom: '16px', 
+    left: '16px', 
+    background: 'rgba(10, 18, 14, 0.9)',
+    padding: '6px 12px', 
+    borderRadius: '20px', 
+    fontSize: '0.75rem', 
+    fontWeight: '700', 
+    color: '#4ADE80',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
   },
   
-  cardBody: { padding: '20px', flex: '1', display: 'flex', flexDirection: 'column' },
-  newsTitle: { fontSize: '1.15rem', lineHeight: '1.4', fontWeight: '700', marginBottom: '12px', color: '#fff' },
-  newsDesc: { fontSize: '0.9rem', color: '#9CA3AF', marginBottom: '20px', lineHeight: '1.6' },
+  cardBody: { 
+    padding: '28px', 
+    flex: '1', 
+    display: 'flex', 
+    flexDirection: 'column' 
+  },
+  newsTitle: { 
+    fontSize: '1.25rem', 
+    lineHeight: '1.4', 
+    fontWeight: '700', 
+    marginBottom: '16px', 
+    color: '#fff',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden'
+  },
+  newsDesc: { 
+    fontSize: '0.95rem', 
+    color: '#D1D5DB', 
+    marginBottom: '24px', 
+    lineHeight: '1.6',
+    flexGrow: 1
+  },
   
-  cardFooter: { marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-    paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.05)' },
-  dateText: { fontSize: '0.75rem', color: '#6B7280', fontWeight: '600' },
-  readMore: { color: '#4ADE80', textDecoration: 'none', fontSize: '0.85rem', fontWeight: '700' },
+  cardFooter: { 
+    marginTop: 'auto', 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingTop: '20px', 
+    borderTop: '1px solid rgba(255,255,255,0.08)' 
+  },
+  dateText: { 
+    fontSize: '0.8rem', 
+    color: '#9CA3AF', 
+    fontWeight: '600' 
+  },
+  readMore: { 
+    color: '#4ADE80', 
+    textDecoration: 'none', 
+    fontSize: '0.9rem', 
+    fontWeight: '700',
+    transition: 'color 0.3s ease'
+  },
+  readMoreHover: {
+    color: '#22C55E'
+  },
   
-  errorBox: { textAlign: 'center', color: '#FCA5A5', background: 'rgba(252, 165, 165, 0.1)', 
-    padding: '20px', borderRadius: '12px', marginBottom: '30px' },
-  emptyText: { textAlign: 'center', gridColumn: '1/-1', color: '#6B7280', padding: '50px' }
+  errorBox: { 
+    textAlign: 'center', 
+    color: '#FCA5A5', 
+    background: 'rgba(252, 165, 165, 0.15)', 
+    padding: '32px', 
+    borderRadius: '20px', 
+    marginBottom: '40px',
+    border: '1px solid rgba(252, 165, 165, 0.3)',
+    backdropFilter: 'blur(10px)'
+  },
+  errorSubtext: {
+    fontSize: '0.85rem', 
+    marginTop: '12px', 
+    color: '#FBBF24'
+  },
+  errorLink: {
+    color: '#4ADE80', 
+    textDecoration: 'none',
+    fontWeight: '600'
+  },
+  emptyText: { 
+    textAlign: 'center', 
+    gridColumn: '1/-1', 
+    color: '#6B7280', 
+    padding: '80px 20px',
+    fontSize: '1.1rem'
+  }
 };
