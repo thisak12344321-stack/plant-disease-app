@@ -1,22 +1,26 @@
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import html2pdf from 'html2pdf.js';
 
 export default function Results({ result, goToPage }) {
   const resultsRef = useRef(null);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (resultsRef.current && result) {
+      // Wait for Google Fonts to load so they don't appear as blank/default blocks
+      await document.fonts.ready;
+
       const element = resultsRef.current;
       const opt = {
-        margin: 0.5,
+        margin: [0.3, 0.3, 0.3, 0.3], // Top, left, bottom, right
         filename: 'plant_diagnosis_report.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        // CRITICAL FIX: Ensure the background color matches your UI exactly for the canvas
+        image: { type: 'jpeg', quality: 1.0 },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
-          backgroundColor: '#000000', // Matches your obsidian green/black
-          logging: false 
+          backgroundColor: '#050806', // Matches your UI background
+          letterRendering: true,
+          scrollY: 0,
+          windowWidth: document.documentElement.offsetWidth
         },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
@@ -152,8 +156,21 @@ export default function Results({ result, goToPage }) {
           pointer-events: none;
           z-index: 0;
         }
-        
-        @media print { .no-print { display: none !important; } }
+
+        /* PDF Generation Fixes */
+        @media print {
+          .no-print { display: none !important; }
+          * { 
+            -webkit-print-color-adjust: exact !important; 
+            color-adjust: exact !important; 
+            print-color-adjust: exact !important;
+          }
+          h1, h2, h3, h4, p, span, li { 
+            color: #FFFFFF !important; 
+            text-shadow: none !important;
+            opacity: 1 !important;
+          }
+        }
       `}</style>
 
       <div className="aura-effect" />
@@ -166,72 +183,75 @@ export default function Results({ result, goToPage }) {
           </button>
         </nav>
 
-        <header style={styles.header}>
-          <h1 style={styles.heroTitle}>Scan <span style={{color: '#4ADE80'}}>Analysis</span></h1>
-          <div style={styles.divider} />
-        </header>
+        {/* Capture wrapper for html2canvas */}
+        <div ref={resultsRef} style={{ background: '#050806', borderRadius: '48px', paddingBottom: '40px' }}>
+          <header style={styles.header}>
+            <h1 style={styles.heroTitle}>Scan <span style={{color: '#4ADE80'}}>Analysis</span></h1>
+            <div style={styles.divider} />
+          </header>
 
-        {!result ? (
-          <div style={styles.emptyState}>
-            <p>Waiting for data input...</p>
-            <button onClick={() => goToPage('upload')} style={styles.primaryBtn}>Return to Scan</button>
-          </div>
-        ) : (
-          <div ref={resultsRef} style={styles.resultsGrid}>
-            {plantResults.map((plantObj, i) => (
-              <div key={i} style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <p style={styles.metaText}>Specimen identified as</p>
-                  <h2 style={styles.plantTitle}>{plantObj.plant}</h2>
+          {!result ? (
+            <div style={styles.emptyState}>
+              <p>Waiting for data input...</p>
+              <button onClick={() => goToPage('upload')} style={styles.primaryBtn}>Return to Scan</button>
+            </div>
+          ) : (
+            <div style={styles.resultsGrid}>
+              {plantResults.map((plantObj, i) => (
+                <div key={i} style={styles.card}>
+                  <div style={styles.cardHeader}>
+                    <p style={styles.metaText}>Specimen identified as</p>
+                    <h2 style={styles.plantTitle}>{plantObj.plant}</h2>
+                  </div>
+
+                  {plantObj.diseases?.map((diseaseObj, j) => {
+                    const info = diseaseInfo[plantObj.classKey] || {};
+                    const isHealthy = diseaseObj.disease.toLowerCase().includes('healthy');
+                    
+                    return (
+                      <div key={j} style={styles.contentSection}>
+                        <div style={{...styles.statusBox, borderLeft: isHealthy ? '3px solid #4ADE80' : '3px solid #FCA5A5'}}>
+                          <div style={{flex: 1}}>
+                            <p style={styles.label}>Condition Detected</p>
+                            <h3 style={{...styles.diseaseName, color: isHealthy ? '#4ADE80' : '#FCA5A5'}}>
+                              {diseaseObj.disease}
+                            </h3>
+                          </div>
+                          <div style={styles.confidenceBlock}>
+                            <span style={styles.confValue}>{diseaseObj.confidence}%</span>
+                            <span style={styles.confLabel}>Accuracy</span>
+                          </div>
+                        </div>
+
+                        <div style={styles.detailsGrid}>
+                          <div style={styles.infoCol}>
+                            <h4 style={styles.sectionHeading}>Physical Symptoms</h4>
+                            <ul>{info.symptoms?.map((s,k)=><li key={k} className="list-item">{s}</li>)}</ul>
+                          </div>
+                          <div style={styles.infoCol}>
+                            <h4 style={styles.sectionHeading}>Actionable Treatment</h4>
+                            <ul>{info.treatment?.map((t,k)=><li key={k} className="list-item">{t}</li>)}</ul>
+                          </div>
+                          <div style={styles.infoCol}>
+                            <h4 style={styles.sectionHeading}>Future Prevention</h4>
+                            <ul>{info.prevention?.map((p,k)=><li key={k} className="list-item">{p}</li>)}</ul>
+                          </div>
+                        </div>
+
+                        {info.additionalInfo && (
+                          <div style={styles.noteBox}>
+                            <span style={{color: '#4ADE80', fontWeight: '800', marginRight: '10px', fontSize: '0.7rem'}}>NOTE:</span>
+                            {info.additionalInfo}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {plantObj.diseases?.map((diseaseObj, j) => {
-                  const info = diseaseInfo[plantObj.classKey] || {};
-                  const isHealthy = diseaseObj.disease.toLowerCase().includes('healthy');
-                  
-                  return (
-                    <div key={j} style={styles.contentSection}>
-                      <div style={{...styles.statusBox, borderLeft: isHealthy ? '3px solid #4ADE80' : '3px solid #FCA5A5'}}>
-                        <div style={{flex: 1}}>
-                          <p style={styles.label}>Condition Detected</p>
-                          <h3 style={{...styles.diseaseName, color: isHealthy ? '#4ADE80' : '#FCA5A5'}}>
-                            {diseaseObj.disease}
-                          </h3>
-                        </div>
-                        <div style={styles.confidenceBlock}>
-                          <span style={styles.confValue}>{diseaseObj.confidence}%</span>
-                          <span style={styles.confLabel}>Accuracy</span>
-                        </div>
-                      </div>
-
-                      <div style={styles.detailsGrid}>
-                        <div style={styles.infoCol}>
-                          <h4 style={styles.sectionHeading}>Physical Symptoms</h4>
-                          <ul>{info.symptoms?.map((s,k)=><li key={k} className="list-item">{s}</li>)}</ul>
-                        </div>
-                        <div style={styles.infoCol}>
-                          <h4 style={styles.sectionHeading}>Actionable Treatment</h4>
-                          <ul>{info.treatment?.map((t,k)=><li key={k} className="list-item">{t}</li>)}</ul>
-                        </div>
-                        <div style={styles.infoCol}>
-                          <h4 style={styles.sectionHeading}>Future Prevention</h4>
-                          <ul>{info.prevention?.map((p,k)=><li key={k} className="list-item">{p}</li>)}</ul>
-                        </div>
-                      </div>
-
-                      {info.additionalInfo && (
-                        <div style={styles.noteBox}>
-                          <span style={{color: '#4ADE80', fontWeight: '800', marginRight: '10px', fontSize: '0.7rem'}}>NOTE:</span>
-                          {info.additionalInfo}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
 
         <footer style={styles.footer} className="no-print">
           <button 
