@@ -7,8 +7,6 @@ const styles = {
     overflow: "hidden", color: "#e2e8f0"
   },
   container: { display: "flex", width: "100%", height: "100%", position: 'relative' },
-  
-  // Left Side: Immersive Visuals with Animated Mesh
   left: { 
     flex: 1.2, 
     background: "radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(5, 150, 105, 0.1) 0%, transparent 50%)",
@@ -52,8 +50,6 @@ const styles = {
     fontSize: "18px", color: "#94a3b8", fontWeight: "300", 
     marginTop: "24px", lineHeight: "1.6", maxWidth: "450px" 
   },
-
-  // Right Side: Ultra-Modern Interface
   right: { 
     flex: 1, display: "flex", justifyContent: "center", alignItems: "center", 
     padding: "40px", position: 'relative', background: "rgba(10, 12, 10, 0.8)"
@@ -70,8 +66,6 @@ const styles = {
   },
   heading: { color: "#fff", fontSize: "36px", margin: 0, fontWeight: "700", letterSpacing: "-1.5px" },
   sub: { color: "#64748b", fontSize: "16px", marginTop: "-16px", fontWeight: "400" },
-
-  // Input Components
   inputWrapper: { position: "relative", width: "100%" },
   input: { 
     width: "100%", padding: "20px", background: "rgba(255,255,255,0.03)", 
@@ -93,8 +87,6 @@ const styles = {
     color: "#10b981", fontWeight: "600", background: "#0c0e0c", padding: "0 6px",
     borderRadius: "4px"
   },
-
-  // Buttons
   button: { 
     padding: "20px", border: "none", borderRadius: "18px", 
     background: "#10b981", 
@@ -117,7 +109,6 @@ const styles = {
     fontSize: "11px", gap: "15px", textTransform: 'uppercase', letterSpacing: '2px' 
   },
   dividerLine: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' },
-  
   guest: { 
     background: "none", border: "none", color: "#64748b", 
     cursor: "pointer", fontSize: "14px", fontWeight: "500", marginTop: "10px"
@@ -205,96 +196,105 @@ export default function Login({ goToPage, setUser }) {
     }
   }, [setUser, goToPage]);
 
-  // Original Handlers (Logic strictly preserved)
-// SIGNUP
-const handleSignup = async () => {
-  if (!email || !password || !name) return setMessage('All fields are required');
-  try {
-    const res = await fetch('https://plant-disease-app-qigz.onrender.com/signup', {
-      method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email: email.toLowerCase().trim(), password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Signup failed');
-    setMessage('Account created! You can now sign in.');
-    setPage('login');
-    setName('');
-  } catch (err) { setMessage(err.message); }
-};
+  // ------------------------------- FUNCTIONS -------------------------------
+  
+  const handleSignup = async () => {
+    if (!name || !email || !password) return setMessage('All fields required');
+    const formData = new URLSearchParams();
+    formData.append('name', name.trim());
+    formData.append('email', email.trim().toLowerCase());
+    formData.append('password', password);
 
-// SEND OTP
-const handleSendOTP = async (isLogin = false) => {
-  if (!email.trim()) return setMessage('Please enter your email');
-  setMessage('Sending code...');
-  try {
-    const res = await fetch('https://plant-disease-app-qigz.onrender.com/send-otp', {
-      method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.toLowerCase().trim() })
-    });
-    if (!res.ok) throw new Error('Failed to send code');
-    setMessage('Verification code sent to email');
-    setPage('otp');
-    setResendTimer(30);
-    setIsLoginFlow(isLogin);
-  } catch (err) { setMessage(err.message); }
-};
+    try {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/signup', {
+        method: 'POST',
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Signup failed');
+      setMessage('Account created! You can now sign in.');
+      setPage('login'); setName(''); setEmail(''); setPassword('');
+    } catch (err) { setMessage(err.message); }
+  };
 
-// VERIFY OTP
-const verifyOTP = async () => {
-  if (!otp) return setMessage('Enter verification code');
-  try {
-    const verifyRes = await fetch('https://plant-disease-app-qigz.onrender.com/verify-otp', {
-      method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.toLowerCase().trim(), otp })
-    });
-    if (!verifyRes.ok) throw new Error('Invalid or expired code');
-    if (isLoginFlow && password) {
-      completeLogin();
-    } else if (isLoginFlow) {
-      setMessage('Code verified. Please enter your password.');
-      setPage('login');
-    } else {
-      setPage('reset');
-      setMessage('Code verified. Enter your new password.');
-    }
-  } catch (err) { setMessage(err.message); }
-};
+  const handleSendOTP = async (isLogin = false) => {
+    if (!email) return setMessage('Please enter your email');
+    setMessage('Sending code...');
+    const formData = new URLSearchParams();
+    formData.append('email', email.toLowerCase().trim());
+    try {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/send-otp', {
+        method: 'POST',
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      if (!res.ok) throw new Error('Failed to send code');
+      setMessage('Verification code sent to email');
+      setPage('otp'); setResendTimer(30); setIsLoginFlow(isLogin);
+    } catch (err) { setMessage(err.message); }
+  };
 
-// COMPLETE LOGIN
-const completeLogin = async () => {
-  try {
-    const loginRes = await fetch('https://plant-disease-app-qigz.onrender.com/login', {
-      method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.toLowerCase().trim(), password })
-    });
-    const userData = await loginRes.json();
-    if (loginRes.ok) {
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-      goToPage('home');
-    } else throw new Error(userData.detail || 'Login failed');
-  } catch (err) { setMessage(err.message); }
-};
+  const verifyOTP = async () => {
+    if (!otp) return setMessage('Enter verification code');
+    const formData = new URLSearchParams();
+    formData.append('email', email.toLowerCase().trim());
+    formData.append('otp', otp);
+    try {
+      const verifyRes = await fetch('https://plant-disease-app-qigz.onrender.com/verify-otp', {
+        method: 'POST',
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      if (!verifyRes.ok) throw new Error('Invalid or expired code');
+      if (isLoginFlow && password) {
+        completeLogin();
+      } else if (isLoginFlow) {
+        setMessage('Code verified. Please enter your password.');
+        setPage('login');
+      } else {
+        setPage('reset'); setMessage('Code verified. Enter your new password.');
+      }
+    } catch (err) { setMessage(err.message); }
+  };
 
-// PASSWORD RESET
-const handlePasswordReset = async () => {
-  if (!password) return setMessage('Please enter a new password');
-  try {
-    const res = await fetch('https://plant-disease-app-qigz.onrender.com/reset-password', {
-      method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.toLowerCase().trim(), new_password: password })
-    });
-    if (!res.ok) throw new Error('Failed to update password');
-    setMessage('Password updated! Please login.');
-    setPage('login');
-    setPassword('');
-  } catch (err) { setMessage(err.message); }
-};
+  const completeLogin = async () => {
+    const formData = new URLSearchParams();
+    formData.append('email', email.toLowerCase().trim());
+    formData.append('password', password);
+    try {
+      const loginRes = await fetch('https://plant-disease-app-qigz.onrender.com/login', {
+        method: 'POST',
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      const userData = await loginRes.json();
+      if (loginRes.ok) {
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        goToPage('home');
+      } else throw new Error(userData.detail || 'Login failed');
+    } catch (err) { setMessage(err.message); }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!password) return setMessage('Please enter a new password');
+    const formData = new URLSearchParams();
+    formData.append('email', email.toLowerCase().trim());
+    formData.append('new_password', password);
+    try {
+      const res = await fetch('https://plant-disease-app-qigz.onrender.com/reset-password', {
+        method: 'POST',
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      if (!res.ok) throw new Error('Failed to update password');
+      setMessage('Password updated! Please login.');
+      setPage('login'); setPassword('');
+    } catch (err) { setMessage(err.message); }
+  };
+
+  // ------------------------------- RENDER -------------------------------
   return (
     <div style={styles.fullScreenOverlay}>
       <style>{`
@@ -316,7 +316,6 @@ const handlePasswordReset = async () => {
 
         <div style={styles.right}>
           <div style={styles.card}>
-            
             {page === 'login' && <>
               <h2 style={styles.heading}>Welcome Back</h2>
               <p style={styles.sub}>Enter your details to sync data</p>
