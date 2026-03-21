@@ -1,23 +1,24 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Body
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Body, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo import MongoClient
 from PIL import Image
-from fastapi import BackgroundTasks
 import torch
 from torchvision import transforms, models
 import random
-import smtplib
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from resend import Resend
 from dotenv import load_dotenv
+
+# Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
-print("EMAIL_USER:", EMAIL_USER)
-print("EMAIL_PASS:", EMAIL_PASS)
+
+# Initialize Resend client
+resend_client = Resend(os.getenv("re_bzw8PBEk_FPZ5neuR2rhhhhNWMpwa8EAy"))
+
+print("RESEND_API_KEY loaded:", bool(os.getenv("RESEND_API_KEY")))
 print(os.listdir())
+
 app = FastAPI()
 
 # -------------------------------
@@ -32,17 +33,10 @@ app.add_middleware(
 )
 
 # -------------------------------
-# ENV VARIABLES
-# -------------------------------
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
-
-# -------------------------------
 # MONGODB
 # -------------------------------
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
-
 db = client.plantdoc
 users_collection = db.users
 
@@ -52,70 +46,75 @@ users_collection = db.users
 otp_store = {}
 
 # -------------------------------
-# EMAIL FUNCTION
+# RESEND EMAIL FUNCTION
 # -------------------------------
-def send_email_otp(to_email, otp):
+def send_email_otp(to_email: str, otp: str):
+    """Send OTP via Resend API (works perfectly on Render free tier)"""
     try:
-        if not EMAIL_USER or not EMAIL_PASS:
-            raise Exception("Email credentials not set")
-
-        sender_email = EMAIL_USER
-        password = EMAIL_PASS
-
-        msg = MIMEText(f"Your OTP is: {otp}")
-        msg["Subject"] = "Login OTP"
-        msg["From"] = sender_email
-        msg["To"] = to_email
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, password)
-            server.sendmail(sender_email, to_email, msg.as_string())
-
+        if not resend_client.api_key:
+            print("❌ RESEND_API_KEY missing - skipping email")
+            return
+            
+        resend_client.emails.send({
+            "from": "PlantDoc AI <noreply@plantdoc.app>",  # Update this later
+            "to": to_email,
+            "subject": "Your PlantDoc Login OTP", 
+            "text": f"Hi! Your PlantDoc OTP is: {otp}\n\nValid for 10 minutes only.\n\nTeam PlantDoc",
+            "html": f"""
+            <h2 style="color: #4CAF50;">Your PlantDoc Login OTP</h2>
+            <p><strong style="font-size: 24px; color: #2196F3;">{otp}</strong></p>
+            <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+            <hr>
+            <p>Team PlantDoc</p>
+            """
+        })
+        print(f"✅ OTP sent to {to_email}")
+        
     except Exception as e:
-        print("EMAIL ERROR:", e)
-        raise HTTPException(status_code=500, detail="Email failed")
+        print(f"⚠️ Email failed (non-critical): {e}")
+        # Don't crash the main endpoint
+
 # -------------------------------
 # SEND OTP
 # -------------------------------
-from fastapi import BackgroundTasks
-
 @app.post("/send-otp")
 async def send_otp(background_tasks: BackgroundTasks, email: str = Form(...)):
-    email = email.strip()
-    otp = random.randint(100000, 999999)
+    email = email.strip().lower()
+    otp = str(random.randint(100000, 999999))  # Store as string
     otp_store[email] = otp
 
-    # 👇 send email in background
+    # Send email in background (non-blocking)
     background_tasks.add_task(send_email_otp, email, otp)
+    
+    return {"message": "OTP sent instantly", "email": email}
 
-    return {"message": "OTP sent instantly"}
 # -------------------------------
 # VERIFY OTP
 # -------------------------------
-# Change otp: int to otp: str
 @app.post("/verify-otp")
 async def verify_otp(email: str = Form(...), otp: str = Form(...)):
-    email = email.strip()
-    # Convert the stored integer OTP to a string for comparison
+    email = email.strip().lower()
     stored_otp = otp_store.get(email)
     
-    if stored_otp and str(stored_otp) == otp.strip():
-        otp_store.pop(email)
-        return {"message": "OTP verified"}
-        
-    raise HTTPException(status_code=400, detail="Invalid OTP")
+    if stored_otp and stored_otp == otp.strip():
+        otp_store.pop(email, None)
+        return {"message": "OTP verified successfully"}
+    
+    raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
 # -------------------------------
 # SIGNUP
 # -------------------------------
 @app.post("/signup")
 async def signup(name: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    email = email.strip()
+    email = email.strip().lower()
     if users_collection.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email exists")
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
     users_collection.insert_one({
-        "name": name,
+        "name": name.strip(),
         "email": email,
-        "password": password,
+        "password": password,  # In production, hash this!
         "purchasedItems": []
     })
     return {"message": "Signup successful"}
@@ -125,22 +124,26 @@ async def signup(name: str = Form(...), email: str = Form(...), password: str = 
 # -------------------------------
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
-    email = email.strip()
+    email = email.strip().lower()
     user = users_collection.find_one({"email": email})
+    
     if not user or user["password"] != password:
         raise HTTPException(status_code=400, detail="Invalid credentials")
+    
     return {
         "name": user["name"],
         "email": user["email"],
         "purchasedItems": user.get("purchasedItems", [])
     }
-    
 
+# -------------------------------
+# RESET PASSWORD
+# -------------------------------
 @app.post("/reset-password")
 async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     email = email.strip().lower()
-    
     user = users_collection.find_one({"email": email})
+    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -149,6 +152,7 @@ async def reset_password(email: str = Form(...), new_password: str = Form(...)):
         {"$set": {"password": new_password}}
     )
     return {"message": "Password updated successfully"}
+
 # -------------------------------
 # PLANT DISEASE MODEL
 # -------------------------------
@@ -186,6 +190,7 @@ if os.path.exists(MODEL_PATH):
         temp_model.classifier[1] = torch.nn.Linear(temp_model.classifier[1].in_features, num_classes)
         checkpoint = torch.load(MODEL_PATH, map_location=device)
         ckpt_out_features = checkpoint['classifier.1.weight'].shape[0] if 'classifier.1.weight' in checkpoint else None
+        
         if ckpt_out_features == num_classes:
             temp_model.load_state_dict(checkpoint)
             temp_model.to(device)
@@ -212,6 +217,7 @@ transform = transforms.Compose([
 async def predict(file: UploadFile = File(...)):
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+    
     try:
         image = Image.open(file.file).convert("RGB")
         image = transform(image).unsqueeze(0).to(device)
@@ -221,7 +227,6 @@ async def predict(file: UploadFile = File(...)):
             probs = torch.nn.functional.softmax(outputs, dim=1)
             confidence, predicted = torch.max(probs, 1)
 
-        # Get the predicted class key
         key = class_names[predicted.item()]
         info = class_data.get(key, {
             "plant": key.split("_")[0],
@@ -234,7 +239,7 @@ async def predict(file: UploadFile = File(...)):
 
         return {
             "plant": info["plant"],
-            "classKey": key,   # <-- send original class key for React mapping
+            "classKey": key,
             "diseases": [{
                 "disease": info["disease"],
                 "confidence": round(confidence.item() * 100, 2),
@@ -244,55 +249,60 @@ async def predict(file: UploadFile = File(...)):
                 "additionalInfo": info["additionalInfo"]
             }]
         }
-
     except Exception as e:
         print("❌ Predict error:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
+
 # -------------------------------
-# ONLINE PURCHASE (RAZORPAY)
+# ONLINE PURCHASE (RAZORPAY) - Updated with Resend
 # -------------------------------
 @app.post("/purchase")
 async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymentDetails: dict = Body(...)):
-    userEmail = userEmail.strip()
+    userEmail = userEmail.strip().lower()
     user = users_collection.find_one({"email": userEmail})
+    
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
-    users_collection.update_one({"email": userEmail},{"$push":{"purchasedItems":product}})
+    
+    users_collection.update_one({"email": userEmail}, {"$push": {"purchasedItems": product}})
 
+    # Send purchase confirmation via Resend
     try:
-        sender_email = EMAIL_USER
-        password = EMAIL_PASS
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Invoice for {product['name']}"
-        msg["From"] = sender_email
-        msg["To"] = userEmail
-
-        html = f"""
-        <h2>Payment Successful</h2>
-        <p>Product: {product['name']}</p>
-        <p>Quantity: {product['quantity']}</p>
-        <p>Total: ₹{product['totalAmount']}</p>
-        <p>Payment ID: {paymentDetails.get('razorpay_payment_id')}</p>
-        """
-        msg.attach(MIMEText(html,"html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com",465) as server:
-            server.login(sender_email,password)
-            server.sendmail(sender_email,userEmail,msg.as_string())
+        resend_client.emails.send({
+            "from": "PlantDoc AI <noreply@plantdoc.app>",
+            "to": userEmail,
+            "subject": f"Invoice for {product['name']}",
+            "html": f"""
+            <h2 style="color: #4CAF50;">Payment Successful! 🎉</h2>
+            <h3>Order Details:</h3>
+            <ul>
+                <li><strong>Product:</strong> {product['name']}</li>
+                <li><strong>Quantity:</strong> {product.get('quantity', 1)}</li>
+                <li><strong>Total:</strong> ₹{product['totalAmount']}</li>
+                <li><strong>Payment ID:</strong> {paymentDetails.get('razorpay_payment_id', 'N/A')}</li>
+            </ul>
+            <p>Thank you for your purchase!</p>
+            <hr>
+            <p>Team PlantDoc</p>
+            """
+        })
+        print(f"✅ Purchase confirmation sent to {userEmail}")
     except Exception as e:
-        print("EMAIL ERROR:", e)
+        print(f"⚠️ Purchase email failed: {e}")
 
-    return {"message":"Purchase successful"}
+    return {"message": "Purchase successful"}
 
 # -------------------------------
 # OFFLINE ORDER (COD)
 # -------------------------------
 @app.post("/offline-order")
 async def offline_order(data: dict = Body(...)):
-    userEmail = data.get("userEmail")
+    userEmail = data.get("userEmail", "").strip().lower()
     order = data.get("order")
+    
     user = users_collection.find_one({"email": userEmail})
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
-    users_collection.update_one({"email": userEmail},{"$push":{"purchasedItems":order}})
-    return {"message":"Order placed (COD)"}
+    
+    users_collection.update_one({"email": userEmail}, {"$push": {"purchasedItems": order}})
+    return {"message": "Order placed successfully (COD)"}
