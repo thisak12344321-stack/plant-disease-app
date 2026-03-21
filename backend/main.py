@@ -52,7 +52,7 @@ def send_email_otp(to_email: str, otp: str):
             
         # ✅ CORRECT USAGE: resend.Emails.send()
         resend.Emails.send({
-            "from": "PlantDoc AI <noreply@plantdoc.app>",
+            "from": "PlantDoc AI <kak347658@gmail.com>",
             "to": to_email,
             "subject": "Your PlantDoc Login OTP",
             "text": f"Your PlantDoc OTP is: {otp}\nValid for 10 minutes.",
@@ -254,7 +254,7 @@ async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymen
     # Send confirmation email
     try:
         resend.Emails.send({
-            "from": "PlantDoc AI <noreply@plantdoc.app>",
+            "from": "PlantDoc AI <kak347658@gmail.com>",
             "to": userEmail,
             "subject": f"Invoice for {product['name']}",
             "html": f"""
