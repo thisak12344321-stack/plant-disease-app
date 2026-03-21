@@ -10,20 +10,19 @@ import os
 import resend
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables (Render ignores .env)
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
-# Initialize Resend client
-resend_client = resend(os.getenv("re_bzw8PBEk_FPZ5neuR2rhhhhNWMpwa8EAy"))
+# ✅ FIXED: Use ENVIRONMENT VARIABLE ONLY (set in Render dashboard)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+resend_client = resend.Resend(api_key=RESEND_API_KEY)
 
-print("RESEND_API_KEY loaded:", bool(os.getenv("RESEND_API_KEY")))
+print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
 print(os.listdir())
 
 app = FastAPI()
 
-# -------------------------------
 # CORS
-# -------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,47 +31,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------
-# MONGODB
-# -------------------------------
+# MongoDB
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client.plantdoc
 users_collection = db.users
 
-# -------------------------------
-# OTP STORE
-# -------------------------------
+# OTP Store
 otp_store = {}
 
 # -------------------------------
 # RESEND EMAIL FUNCTION
 # -------------------------------
 def send_email_otp(to_email: str, otp: str):
-    """Send OTP via Resend API (works perfectly on Render free tier)"""
+    """Send OTP via Resend API (Render free tier compatible)"""
     try:
-        if not resend_client.api_key:
+        if not RESEND_API_KEY:
             print("❌ RESEND_API_KEY missing - skipping email")
             return
             
         resend_client.emails.send({
-            "from": "PlantDoc AI <noreply@plantdoc.app>",  # Update this later
+            "from": "PlantDoc AI <noreply@plantdoc.app>",
             "to": to_email,
-            "subject": "Your PlantDoc Login OTP", 
-            "text": f"Hi! Your PlantDoc OTP is: {otp}\n\nValid for 10 minutes only.\n\nTeam PlantDoc",
+            "subject": "Your PlantDoc Login OTP",
+            "text": f"Your PlantDoc OTP is: {otp}\nValid for 10 minutes.",
             "html": f"""
             <h2 style="color: #4CAF50;">Your PlantDoc Login OTP</h2>
-            <p><strong style="font-size: 24px; color: #2196F3;">{otp}</strong></p>
+            <p style="font-size: 36px; font-weight: bold; color: #2196F3; letter-spacing: 4px;">{otp}</p>
             <p>This OTP is valid for <strong>10 minutes</strong>.</p>
-            <hr>
-            <p>Team PlantDoc</p>
+            <hr style="border: 1px solid #333;">
+            <p style="color: #94a3b8; font-size: 14px;">Team PlantDoc</p>
             """
         })
         print(f"✅ OTP sent to {to_email}")
         
     except Exception as e:
         print(f"⚠️ Email failed (non-critical): {e}")
-        # Don't crash the main endpoint
 
 # -------------------------------
 # SEND OTP
@@ -80,12 +74,10 @@ def send_email_otp(to_email: str, otp: str):
 @app.post("/send-otp")
 async def send_otp(background_tasks: BackgroundTasks, email: str = Form(...)):
     email = email.strip().lower()
-    otp = str(random.randint(100000, 999999))  # Store as string
+    otp = str(random.randint(100000, 999999))
     otp_store[email] = otp
 
-    # Send email in background (non-blocking)
     background_tasks.add_task(send_email_otp, email, otp)
-    
     return {"message": "OTP sent instantly", "email": email}
 
 # -------------------------------
@@ -114,7 +106,7 @@ async def signup(name: str = Form(...), email: str = Form(...), password: str = 
     users_collection.insert_one({
         "name": name.strip(),
         "email": email,
-        "password": password,  # In production, hash this!
+        "password": password,
         "purchasedItems": []
     })
     return {"message": "Signup successful"}
@@ -154,7 +146,7 @@ async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     return {"message": "Password updated successfully"}
 
 # -------------------------------
-# PLANT DISEASE MODEL
+# PLANT DISEASE MODEL (UNCHANGED)
 # -------------------------------
 class_data = {
     "Pepper__bell___Bacterial_spot": {"plant":"Pepper", "disease":"Bacterial Spot", "symptoms":["Brown spots on leaves"], "treatment":["Use copper fungicide"], "prevention":["Remove infected leaves"], "additionalInfo":"Caused by Xanthomonas campestris"},
@@ -181,9 +173,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
 
-# -------------------------------
 # SAFE MODEL LOADING
-# -------------------------------
 if os.path.exists(MODEL_PATH):
     try:
         temp_model = models.mobilenet_v2(weights=None)
@@ -198,11 +188,11 @@ if os.path.exists(MODEL_PATH):
             model = temp_model
             print("✅ Model loaded successfully")
         else:
-            print(f"⚠ Checkpoint has {ckpt_out_features} classes, expected {num_classes}. Model not loaded but server will run.")
+            print(f"⚠ Checkpoint has {ckpt_out_features} classes, expected {num_classes}")
     except Exception as e:
-        print("❌ Error loading model:", e, ". Server will run without model")
+        print("❌ Error loading model:", e)
 else:
-    print("⚠ plant_model.pt not found. Server running without model.")
+    print("⚠ plant_model.pt not found")
 
 transform = transforms.Compose([
     transforms.Resize((128,128)),
@@ -210,9 +200,7 @@ transform = transforms.Compose([
     transforms.Normalize([0.5]*3, [0.5]*3)
 ])
 
-# -------------------------------
 # PREDICT ROUTE
-# -------------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     if model is None:
@@ -231,9 +219,7 @@ async def predict(file: UploadFile = File(...)):
         info = class_data.get(key, {
             "plant": key.split("_")[0],
             "disease": "_".join(key.split("_")[1:]),
-            "symptoms": [],
-            "treatment": [],
-            "prevention": [],
+            "symptoms": [], "treatment": [], "prevention": [],
             "additionalInfo": "No information available"
         })
 
@@ -253,9 +239,7 @@ async def predict(file: UploadFile = File(...)):
         print("❌ Predict error:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# -------------------------------
-# ONLINE PURCHASE (RAZORPAY) - Updated with Resend
-# -------------------------------
+# PURCHASE (RAZORPAY)
 @app.post("/purchase")
 async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymentDetails: dict = Body(...)):
     userEmail = userEmail.strip().lower()
@@ -266,7 +250,7 @@ async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymen
     
     users_collection.update_one({"email": userEmail}, {"$push": {"purchasedItems": product}})
 
-    # Send purchase confirmation via Resend
+    # Send confirmation email
     try:
         resend_client.emails.send({
             "from": "PlantDoc AI <noreply@plantdoc.app>",
@@ -282,8 +266,6 @@ async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymen
                 <li><strong>Payment ID:</strong> {paymentDetails.get('razorpay_payment_id', 'N/A')}</li>
             </ul>
             <p>Thank you for your purchase!</p>
-            <hr>
-            <p>Team PlantDoc</p>
             """
         })
         print(f"✅ Purchase confirmation sent to {userEmail}")
@@ -292,9 +274,7 @@ async def purchase(userEmail: str = Body(...), product: dict = Body(...), paymen
 
     return {"message": "Purchase successful"}
 
-# -------------------------------
 # OFFLINE ORDER (COD)
-# -------------------------------
 @app.post("/offline-order")
 async def offline_order(data: dict = Body(...)):
     userEmail = data.get("userEmail", "").strip().lower()
