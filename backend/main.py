@@ -12,17 +12,20 @@ import os
 import resend
 from dotenv import load_dotenv
 
+
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
 
 # ✅ RESEND INIT
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
 print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
-print(os.listdir())
+
 
 app = FastAPI()
+
 
 # CORS
 app.add_middleware(
@@ -33,11 +36,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # MongoDB
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client.plantdoc
 users_collection = db.users
+
 
 # OTP Store
 otp_store = {}
@@ -103,7 +108,7 @@ async def verify_otp(email: str = Form(...), otp: str = Form(...)):
 # -------------------------------
 @app.post("/signup")
 async def signup(name: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    email = email.strip().toLowerCase()
+    email = email.strip().lower()
     if users_collection.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already exists")
 
@@ -153,7 +158,7 @@ async def reset_password(email: str = Form(...), new_password: str = Form(...)):
 
 
 # -------------------------------
-# MOCK PAYMENT API (no Razorpay)
+# MOCK PAYMENT API (no Razorpay, includes UPI mock)
 # -------------------------------
 @app.post("/mock-payment")
 async def mock_payment(
@@ -188,6 +193,7 @@ async def mock_payment(
         "totalAmount": product.get("totalAmount", 0),
         "paymentType": "ONLINE",
         "paymentId": razorpay_payment_id,
+        "upiId": product.get("upiId"),  # ← from your Products.jsx fake UPI
         **{k: v for k, v in product.items() if k not in ["name", "category", "quantity", "pricePerUnit", "totalAmount"]}
     }
 
@@ -221,6 +227,7 @@ async def mock_payment(
                 <li><strong>Product:</strong> {name}</li>
                 <li><strong>Quantity:</strong> {purchased_item["quantity"]}</li>
                 <li><strong>Total:</strong> ₹{total}</li>
+                <li><strong>UPI ID:</strong> {purchased_item.get("upiId", "N/A")}</li>
                 <li><strong>Payment ID:</strong> {razorpay_payment_id}</li>
             </ul>
             <p>Thank you for your purchase!</p>
@@ -260,7 +267,7 @@ async def offline_order(data: dict = Body(...)):
 
 
 # -------------------------------
-# PLANT DISEASE MODEL
+# PLANT DISEASE MODEL CONFIG
 # -------------------------------
 class_data = {
     "Pepper__bell___Bacterial_spot": {
@@ -367,6 +374,8 @@ class_data = {
 class_names = list(class_data.keys())
 num_classes = len(class_names)
 
+
+# DEVICE & MODEL
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
@@ -379,7 +388,8 @@ if os.path.exists(MODEL_PATH):
             temp_model.classifier[1].in_features, num_classes
         )
         checkpoint = torch.load(MODEL_PATH, map_location=device)
-        ckpt_out_features = checkpoint["classifier.1.weight"].shape[0] if "classifier.1.weight" in checkpoint else None
+        ckpt_out_features = checkpoint.get("classifier.1.weight", {}).shape[0] \
+            if "classifier.1.weight" in checkpoint else None
 
         if ckpt_out_features == num_classes:
             temp_model.load_state_dict(checkpoint)
@@ -401,7 +411,9 @@ transform = transforms.Compose([
 ])
 
 
+# -------------------------------
 # PREDICT ROUTE
+# -------------------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     if model is None:
@@ -443,7 +455,9 @@ async def predict(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-# NEWS API (no Razorpay)
+# -------------------------------
+# AGRICULTURE NEWS (GNews)
+# -------------------------------
 @app.get("/api/news")
 async def get_agriculture_news():
     GNEWS_KEY = os.getenv("GNEWS_API_KEY")
@@ -477,6 +491,7 @@ async def get_agriculture_news():
                     return data
         except Exception as e:
             print(f"❌ Query '{query}' failed: {e}")
+
             continue
 
     print("🔄 Trying fallback query...")
