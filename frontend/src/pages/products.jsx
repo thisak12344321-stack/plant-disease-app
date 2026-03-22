@@ -16,6 +16,11 @@ export default function Products({
   const [orderDetails, setOrderDetails] = useState({ name: '', phone: '', address: '' });
   const [successMessage, setSuccessMessage] = useState('');
 
+  // UPI mock flow
+  const [paymentStep, setPaymentStep] = useState("checkout"); // "checkout" | "upi" | "confirm"
+  const [upiId, setUpiId] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
+
   const allProducts = [
     { id: 1, name: 'Copper Fungicide Spray', category: 'fungicide', treats: ['blight', 'scab', 'rust', 'spot', 'mildew'], price: 499 },
     { id: 2, name: 'Neem Oil', category: 'organic pesticide', treats: ['aphids', 'spot', 'mildew', 'fungus'], price: 299 },
@@ -50,6 +55,7 @@ export default function Products({
     setSelectedProduct(product);
     setQuantity(1);
     setOrderDetails({ name: '', phone: '', address: '' });
+    setPaymentStep("checkout");
     setShowPopup(true);
   };
 
@@ -117,50 +123,69 @@ export default function Products({
       return;
     }
 
-    const totalAmount = product.price * quantity;
+    setPaymentStep("upi");
+  };
+
+  const finishFakePayment = async () => {
+    if (!upiId.trim()) {
+      setSuccessMessage("Enter UPI ID");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
+
+    const totalAmount = selectedProduct.price * quantity;
     const purchasedItem = {
-      productName: product.name,
-      productCategory: product.category,
+      productName: selectedProduct.name,
+      productCategory: selectedProduct.category,
       quantity,
-      pricePerUnit: product.price,
+      pricePerUnit: selectedProduct.price,
       totalAmount,
       ...orderDetails,
       paymentType: "ONLINE",
+      upiId: upiId.trim()
     };
 
-    setShowPopup(false);
+    setIsPaying(true);
 
-    try {
-      const res = await fetch("https://plant-disease-app-qigz.onrender.com/mock-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userEmail: user.email,
-          product: purchasedItem,
-          shouldSucceed: true   // change to false to test failure
-        })
-      });
+    setTimeout(async () => {
+      try {
+        const res = await fetch(
+          "https://plant-disease-app-qigz.onrender.com/mock-payment",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userEmail: user.email,
+              product: purchasedItem,
+              shouldSucceed: true
+            })
+          }
+        );
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw err;
+        if (!res.ok) {
+          const err = await res.json();
+          throw err;
+        }
+
+        const data = await res.json();
+        const savedItem = data.userPurchasedItem;
+
+        setUser(prev => ({
+          ...prev,
+          purchasedItems: [...(prev.purchasedItems || []), savedItem]
+        }));
+
+        setSuccessMessage(`✅ Fake payment received via UPI: ${upiId}`);
+      } catch (err) {
+        console.error("Mock payment error:", err);
+        setSuccessMessage("Fake UPI payment failed");
       }
 
-      const data = await res.json();
-      const savedItem = data.userPurchasedItem;
-
-      setUser(prev => ({
-        ...prev,
-        purchasedItems: [...(prev.purchasedItems || []), savedItem]
-      }));
-
-      setSuccessMessage(`✅ Mock payment successful: ${product.name}`);
-    } catch (err) {
-      console.error("Mock payment error:", err);
-      setSuccessMessage("Mock payment failed");
-    }
-
-    setTimeout(() => setSuccessMessage(''), 4000);
+      setShowPopup(false);
+      setPaymentStep("checkout");
+      setUpiId("");
+      setIsPaying(false);
+    }, 2000);
   };
 
   return (
@@ -254,7 +279,7 @@ export default function Products({
         </div>
       </div>
 
-      {/* 🟢 CHECKOUT POPUP */}
+      {/* 🟢 CHECKOUT & UPI POPUP */}
       <AnimatePresence>
         {showPopup && selectedProduct && (
           <div style={styles.modalOverlay}>
@@ -264,69 +289,129 @@ export default function Products({
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               style={styles.modalContent}
             >
-              <button onClick={() => setShowPopup(false)} style={styles.closeModalBtn}>✕</button>
+              <button
+                onClick={() => {
+                  setShowPopup(false);
+                  setPaymentStep("checkout");
+                }}
+                style={styles.closeModalBtn}
+              >
+                ✕
+              </button>
 
-              <p style={styles.modalLabel}>Selected Item</p>
-              <h2 style={styles.modalHeader}>{selectedProduct.name}</h2>
+              {paymentStep === "checkout" && (
+                <>
+                  <p style={styles.modalLabel}>Selected Item</p>
+                  <h2 style={styles.modalHeader}>{selectedProduct.name}</h2>
 
-              <div style={styles.quantityRow}>
-                <button
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  style={styles.qtyBtn}
-                >
-                  −
-                </button>
-                <div style={styles.qtyDisplay}>
-                  <span style={styles.qtyText}>{quantity}</span>
-                  <span style={{ fontSize: '0.6rem', color: '#71717A' }}>UNITS</span>
-                </div>
-                <button
-                  onClick={() => setQuantity(q => q + 1)}
-                  style={styles.qtyBtn}
-                >
-                  +
-                </button>
-              </div>
+                  <div style={styles.quantityRow}>
+                    <button
+                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                      style={styles.qtyBtn}
+                    >
+                      −
+                    </button>
+                    <div style={styles.qtyDisplay}>
+                      <span style={styles.qtyText}>{quantity}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#71717A' }}>UNITS</span>
+                    </div>
+                    <button
+                      onClick={() => setQuantity(q => q + 1)}
+                      style={styles.qtyBtn}
+                    >
+                      +
+                    </button>
+                  </div>
 
-              <div style={styles.totalBox}>
-                <span>Payable Amount</span>
-                <span style={{ color: '#4ADE80', fontWeight: '800' }}>
-                  ₹{selectedProduct.price * quantity}
-                </span>
-              </div>
+                  <div style={styles.totalBox}>
+                    <span>Payable Amount</span>
+                    <span style={{ color: '#4ADE80', fontWeight: '800' }}>
+                      ₹{selectedProduct.price * quantity}
+                    </span>
+                  </div>
 
-              <div style={styles.inputGroup}>
-                <input
-                  placeholder="Full Name"
-                  style={styles.input}
-                  onChange={e => setOrderDetails({ ...orderDetails, name: e.target.value })}
-                />
-                <input
-                  placeholder="Mobile Number"
-                  style={styles.input}
-                  onChange={e => setOrderDetails({ ...orderDetails, phone: e.target.value })}
-                />
-                <textarea
-                  placeholder="Delivery Address"
-                  style={{ ...styles.input, height: '100px', resize: 'none' }}
-                  onChange={e => setOrderDetails({ ...orderDetails, address: e.target.value })}
-                />
-              </div>
+                  <div style={styles.inputGroup}>
+                    <input
+                      placeholder="Full Name"
+                      style={styles.input}
+                      onChange={e => setOrderDetails({ ...orderDetails, name: e.target.value })}
+                    />
+                    <input
+                      placeholder="Mobile Number"
+                      style={styles.input}
+                      onChange={e => setOrderDetails({ ...orderDetails, phone: e.target.value })}
+                    />
+                    <textarea
+                      placeholder="Delivery Address"
+                      style={{ ...styles.input, height: '100px', resize: 'none' }}
+                      onChange={e => setOrderDetails({ ...orderDetails, address: e.target.value })}
+                    />
+                  </div>
 
-              <div style={styles.actionRow}>
-                <button
-                  onClick={() => handleOfflineOrder(selectedProduct)}
-                  style={styles.codBtn}
-                >
-                  Offline COD
-                </button>
-                <button
-                  onClick={() => handlePayment(selectedProduct)}
-                  style={styles.onlineBtn}
-                >
-                  Secure Checkout
-                </button>
-              </div>
+                  <div style={styles.actionRow}>
+                    <button
+                      onClick={() => handleOfflineOrder(selectedProduct)}
+                      style={styles.codBtn}
+                    >
+                      Offline COD
+                    </button>
+                    <button
+                      onClick={() => handlePayment(selectedProduct)}
+                      style={styles.onlineBtn}
+                    >
+                      Secure Checkout
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {paymentStep === "upi" && (
+                <>
+                  <h2 style={styles.modalHeader}>Pay via UPI</h2>
+
+                  <p style={{ fontSize: '0.9rem', color: '#B1B1B1', margin: '10px 0 20px' }}>
+                    Use any UPI app to send money to:
+                  </p>
+
+                  <div style={{
+                    background: 'rgba(74, 222, 128, 0.1)',
+                    border: '1px solid rgba(74, 222, 128, 0.3)',
+                    borderRadius: '16px',
+                    padding: '14px 16px',
+                    marginBottom: '20px'
+                  }}>
+                    <span style={{ color: '#4ADE80', fontWeight: '600' }}>
+                      plantdoc@okaxis
+                    </span>
+                  </div>
+
+                  <div style={styles.inputGroup}>
+                    <input
+                      type="text"
+                      placeholder="Enter UPI ID (e.g., myupi@okaxis)"
+                      style={styles.input}
+                      value={upiId}
+                      onChange={e => setUpiId(e.target.value)}
+                    />
+                  </div>
+
+                  <div style={styles.actionRow}>
+                    <button
+                      onClick={() => setPaymentStep("checkout")}
+                      style={styles.codBtn}
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={finishFakePayment}
+                      style={styles.onlineBtn}
+                      disabled={isPaying}
+                    >
+                      {isPaying ? "Processing..." : "Pay Now via UPI"}
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}
@@ -382,6 +467,8 @@ const styles = {
     marginBottom: '40px',
     fontFamily: "'Fraunces', serif"
   },
+  
+
   heroTitle: {
     fontSize: '4rem',
     fontWeight: '800',
