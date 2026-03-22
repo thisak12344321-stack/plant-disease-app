@@ -7,31 +7,24 @@ from PIL import Image
 import torch
 from torchvision import transforms, models
 import random
+import string
 import os
 import resend
 from dotenv import load_dotenv
 
-# -------------------------------
-# LOAD ENV
-# -------------------------------
+
+# Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
+# ✅ CORRECT RESEND INITIALIZATION
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 resend.api_key = RESEND_API_KEY
 print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
+print(os.listdir())
 
-SQUARE_ACCESS_TOKEN = os.getenv("EAAAl46R1b6zlgwsSBsts08TOFVC_wDC_Zt15NZ6GWVWlyKTD4TsHrmmXvR3-RR3")
-SQUARE_LOCATION_ID = os.getenv("sandbox-sq0idb-Gj2as9aFL6MwS_xODwfeVg")
-SQUARE_API_BASE = "https://connect.squareupsandbox.com/v2"
-
-MONGO_URI = os.getenv("MONGO_URI")
-GNEWS_KEY = os.getenv("GNEWS_API_KEY")
-
-# -------------------------------
-# FASTAPI INIT
-# -------------------------------
 app = FastAPI()
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,204 +33,477 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# MongoDB
+MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client.plantdoc
 users_collection = db.users
 
+# OTP Store
 otp_store = {}
 
+
 # -------------------------------
-# EMAIL OTP
+# RESEND EMAIL FUNCTION
 # -------------------------------
 def send_email_otp(to_email: str, otp: str):
     try:
         if not RESEND_API_KEY:
-            print("❌ RESEND_API_KEY missing")
+            print("❌ RESEND_API_KEY missing - skipping email")
             return
+
         resend.Emails.send({
             "from": "PlantDoc AI <plantdoc@resend.dev>",
             "to": to_email,
-            "subject": "Your PlantDoc OTP",
-            "text": f"Your OTP: {otp} (valid 10min)",
+            "subject": "Your PlantDoc Login OTP",
+            "text": f"Your PlantDoc OTP is: {otp}\nValid for 10 minutes.",
             "html": f"""
             <h2 style="color: #4CAF50;">Your PlantDoc Login OTP</h2>
-            <p style="font-size:36px;font-weight:bold;color:#2196F3;">{otp}</p>
-            <p>Valid for <strong>10 minutes</strong></p>
+            <p style="font-size: 36px; font-weight: bold; color: #2196F3;">{otp}</p>
+            <p>Valid for <strong>10 minutes</strong>.</p>
             <hr>
-            <p style="color:#94a3b8;">Team PlantDoc</p>
+            <p style="color: #94a3b8;">Team PlantDoc</p>
             """
         })
         print(f"✅ OTP sent to {to_email}")
     except Exception as e:
-        print(f"⚠ Email failed: {e}")
+        print(f"⚠️ Email failed: {e}")
 
+
+# -------------------------------
+# SEND OTP
+# -------------------------------
 @app.post("/send-otp")
 async def send_otp(background_tasks: BackgroundTasks, email: str = Form(...)):
     email = email.strip().lower()
     otp = str(random.randint(100000, 999999))
     otp_store[email] = otp
-    background_tasks.add_task(send_email_otp, email, otp)
-    return {"message": "OTP sent", "email": email}
 
+    background_tasks.add_task(send_email_otp, email, otp)
+    return {"message": "OTP sent instantly", "email": email}
+
+
+# -------------------------------
+# VERIFY OTP
+# -------------------------------
 @app.post("/verify-otp")
 async def verify_otp(email: str = Form(...), otp: str = Form(...)):
     email = email.strip().lower()
-    if otp_store.get(email) == otp.strip():
+    stored_otp = otp_store.get(email)
+
+    if stored_otp and stored_otp == otp.strip():
         otp_store.pop(email, None)
-        return {"message": "OTP verified"}
-    raise HTTPException(status_code=400, detail="Invalid/expired OTP")
+        return {"message": "OTP verified successfully"}
+
+    raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
 
 # -------------------------------
-# SIGNUP / LOGIN / RESET
+# SIGNUP
 # -------------------------------
 @app.post("/signup")
 async def signup(name: str = Form(...), email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
     if users_collection.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email exists")
-    users_collection.insert_one({"name": name.strip(), "email": email, "password": password, "purchasedItems": []})
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    users_collection.insert_one({
+        "name": name.strip(),
+        "email": email,
+        "password": password,
+        "purchasedItems": []
+    })
     return {"message": "Signup successful"}
 
+
+# -------------------------------
+# LOGIN
+# -------------------------------
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
     user = users_collection.find_one({"email": email})
+
     if not user or user["password"] != password:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    return {"name": user["name"], "email": user["email"], "purchasedItems": user.get("purchasedItems", [])}
 
+    return {
+        "name": user["name"],
+        "email": user["email"],
+        "purchasedItems": user.get("purchasedItems", [])
+    }
+
+
+# -------------------------------
+# RESET PASSWORD
+# -------------------------------
 @app.post("/reset-password")
 async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     email = email.strip().lower()
-    if not users_collection.find_one({"email": email}):
+    user = users_collection.find_one({"email": email})
+
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    users_collection.update_one({"email": email}, {"$set": {"password": new_password}})
-    return {"message": "Password updated"}
+
+    users_collection.update_one(
+        {"email": email},
+        {"$set": {"password": new_password}}
+    )
+    return {"message": "Password updated successfully"}
+
+
+# -------------------------------
+# MOCK PAYMENT API (no Razorpay)
+# -------------------------------
+@app.post("/mock-payment")
+async def mock_payment(
+    userEmail: str = Body(...),
+    product: dict = Body(...),
+    shouldSucceed: bool = Body(True)  # For testing: False = fail
+):
+    userEmail = userEmail.strip().lower()
+    user = users_collection.find_one({"email": userEmail})
+
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    if not shouldSucceed:
+        return {"status": "failed", "message": "Mock payment failed"}
+
+    def gen_mock_id(prefix: str):
+        return prefix + "_" + "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=15)
+        )
+
+    razorpay_payment_id = gen_mock_id("mock_pay")
+    razorpay_order_id = gen_mock_id("mock_order")
+    razorpay_signature = gen_mock_id("mock_sign")
+
+    paymentResponse = {
+        "razorpay_payment_id": razorpay_payment_id,
+        "razorpay_order_id": razorpay_order_id,
+        "razorpay_signature": razorpay_signature,
+        "status": "captured",
+        "amount": product["totalAmount"] * 100,
+        "currency": "INR",
+    }
+
+    purchased_item = {
+        "productName": product["name"],
+        "productCategory": product["category"],
+        "quantity": product.get("quantity", 1),
+        "pricePerUnit": product["pricePerUnit"],
+        "totalAmount": product["totalAmount"],
+        "paymentType": "ONLINE",
+        "paymentId": razorpay_payment_id,
+        **{k: v for k, v in product.items() if k not in [
+            "name", "category", "quantity", "pricePerUnit", "totalAmount"
+        ]}
+    }
+
+    users_collection.update_one(
+        {"email": userEmail},
+        {"$push": {"purchasedItems": purchased_item}}
+    )
+
+    try:
+        resend.Emails.send({
+            "from": "PlantDoc AI <plantdoc@resend.dev>",
+            "to": userEmail,
+            "subject": f"Invoice for {product['name']}",
+            "html": f"""
+            <h2 style="color: #4CAF50;">Payment Successful! 🎉</h2>
+            <h3>Order Details:</h3>
+            <ul>
+                <li><strong>Product:</strong> {product['name']}</li>
+                <li><strong>Quantity:</strong> {product.get('quantity', 1)}</li>
+                <li><strong>Total:</strong> ₹{product['totalAmount']}</li>
+                <li><strong>Payment ID:</strong> {razorpay_payment_id}</li>
+            </ul>
+            <p>Thank you for your purchase!</p>
+            """
+        })
+        print(f"✅ Mock purchase confirmation sent to {userEmail}")
+    except Exception as e:
+        print(f"⚠️ Mock purchase email failed: {e}")
+
+    return {
+        "status": "success",
+        "payment": paymentResponse,
+        "userPurchasedItem": purchased_item,
+    }
+
+
+# -------------------------------
+# OFFLINE ORDER (COD)
+# -------------------------------
+@app.post("/offline-order")
+async def offline_order(data: dict = Body(...)):
+    userEmail = data.get("userEmail", "").strip().lower()
+    order = data.get("order")
+
+    user = users_collection.find_one({"email": userEmail})
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    users_collection.update_one(
+        {"email": userEmail},
+        {"$push": {"purchasedItems": order}}
+    )
+    return {"message": "Order placed successfully (COD)"}
+
 
 # -------------------------------
 # PLANT DISEASE MODEL
 # -------------------------------
 class_data = {
-    "Pepper__bell___Bacterial_spot": {"plant":"Pepper","disease":"Bacterial Spot","symptoms":["Brown spots on leaves"],"treatment":["Use copper fungicide"],"prevention":["Remove infected leaves"],"additionalInfo":"Caused by Xanthomonas campestris"},
-    "Pepper__bell___healthy": {"plant":"Pepper","disease":"Healthy","symptoms":[],"treatment":[],"prevention":[],"additionalInfo":"No disease detected"},
-    "Potato___Early_blight": {"plant":"Potato","disease":"Early Blight","symptoms":["Dark brown concentric spots"],"treatment":["Chlorothalonil fungicide"],"prevention":["Rotate crops"],"additionalInfo":"Alternaria solani fungus"},
-    "Potato___Late_blight": {"plant":"Potato","disease":"Late Blight","symptoms":["Dark lesions, white mold"],"treatment":["Mancozeb fungicide"],"prevention":["Resistant varieties"],"additionalInfo":"Phytophthora infestans"},
-    "Potato___healthy": {"plant":"Potato","disease":"Healthy","symptoms":[],"treatment":[],"prevention":[],"additionalInfo":"No disease detected"},
-    "Tomato_Bacterial_spot": {"plant":"Tomato","disease":"Bacterial Spot","symptoms":["Small dark spots on leaves"],"treatment":["Copper fungicide"],"prevention":["Remove infected plants"],"additionalInfo":"Xanthomonas"},
-    "Tomato_Early_blight": {"plant":"Tomato","disease":"Early Blight","symptoms":["Brown concentric spots"],"treatment":["Fungicide"],"prevention":["Crop rotation"],"additionalInfo":"Alternaria"},
-    "Tomato_Late_blight": {"plant":"Tomato","disease":"Late Blight","symptoms":["Brown lesions"],"treatment":["Fungicide"],"prevention":["Resistant varieties"],"additionalInfo":"Phytophthora"},
-    "Tomato_healthy": {"plant":"Tomato","disease":"Healthy","symptoms":[],"treatment":[],"prevention":[],"additionalInfo":"No disease detected"},
-    "Tomato_Leaf_Mold": {"plant":"Tomato","disease":"Leaf Mold","symptoms":["Yellow spots under leaves"],"treatment":["Fungicide"],"prevention":["Avoid wet foliage"],"additionalInfo":"Passalora fulva"},
-    "Tomato_Septoria_leaf_spot": {"plant":"Tomato","disease":"Septoria Leaf Spot","symptoms":["Small circular spots"],"treatment":["Remove infected leaves"],"prevention":["Crop rotation"],"additionalInfo":"Septoria lycopersici"},
-    "Tomato_Spider_mites_Two_spotted_spider_mite": {"plant":"Tomato","disease":"Spider Mites","symptoms":["Yellow leaves, webbing"],"treatment":["Miticide"],"prevention":["Avoid dry stress"],"additionalInfo":"Tetranychus urticae"},
-    "Tomato__Target_Spot": {"plant":"Tomato","disease":"Target Spot","symptoms":["Dark circular lesions"],"treatment":["Fungicide"],"prevention":["Crop rotation"],"additionalInfo":"Corynespora"},
-    "Tomato__Tomato_mosaic_virus": {"plant":"Tomato","disease":"Mosaic Virus","symptoms":["Mottled leaves"],"treatment":["Remove infected plants"],"prevention":["Resistant varieties"],"additionalInfo":"TMV virus"},
-    "Tomato__Tomato_YellowLeaf__Curl_Virus": {"plant":"Tomato","disease":"Yellow Leaf Curl Virus","symptoms":["Yellow curling leaves"],"treatment":["Remove infected plants"],"prevention":["Resistant varieties"],"additionalInfo":"TYLCV virus"}
+    "Pepper__bell___Bacterial_spot": {
+        "plant":"Pepper", "disease":"Bacterial Spot",
+        "symptoms":["Brown spots on leaves"],
+        "treatment":["Use copper fungicide"],
+        "prevention":["Remove infected leaves"],
+        "additionalInfo":"Caused by Xanthomonas campestris"
+    },
+    "Pepper__bell___healthy": {
+        "plant":"Pepper", "disease":"Healthy",
+        "symptoms":[], "treatment":[], "prevention":[],
+        "additionalInfo":"No disease detected"
+    },
+    "Potato___Early_blight": {
+        "plant":"Potato", "disease":"Early Blight",
+        "symptoms":["Dark brown concentric spots"],
+        "treatment":["Chlorothalonil fungicide"],
+        "prevention":["Rotate crops"],
+        "additionalInfo":"Alternaria solani fungus"
+    },
+    "Potato___Late_blight": {
+        "plant":"Potato", "disease":"Late Blight",
+        "symptoms":["Dark lesions, white mold"],
+        "treatment":["Mancozeb fungicide"],
+        "prevention":["Resistant varieties"],
+        "additionalInfo":"Phytophthora infestans"
+    },
+    "Potato___healthy": {
+        "plant":"Potato", "disease":"Healthy",
+        "symptoms":[], "treatment":[], "prevention":[],
+        "additionalInfo":"No disease detected"
+    },
+    "Tomato_Bacterial_spot": {
+        "plant":"Tomato", "disease":"Bacterial Spot",
+        "symptoms":["Small dark spots on leaves"],
+        "treatment":["Copper fungicide"],
+        "prevention":["Remove infected plants"],
+        "additionalInfo":"Xanthomonas"
+    },
+    "Tomato_Early_blight": {
+        "plant":"Tomato", "disease":"Early Blight",
+        "symptoms":["Brown concentric spots"],
+        "treatment":["Fungicide"],
+        "prevention":["Crop rotation"],
+        "additionalInfo":"Alternaria"
+    },
+    "Tomato_Late_blight": {
+        "plant":"Tomato", "disease":"Late Blight",
+        "symptoms":["Brown lesions"],
+        "treatment":["Fungicide"],
+        "prevention":["Resistant varieties"],
+        "additionalInfo":"Phytophthora"
+    },
+    "Tomato_healthy": {
+        "plant":"Tomato", "disease":"Healthy",
+        "symptoms":[], "treatment":[], "prevention":[],
+        "additionalInfo":"No disease detected"
+    },
+    "Tomato_Leaf_Mold": {
+        "plant":"Tomato", "disease":"Leaf Mold",
+        "symptoms":["Yellow spots under leaves"],
+        "treatment":["Fungicide"],
+        "prevention":["Avoid wet foliage"],
+        "additionalInfo":"Passalora fulva"
+    },
+    "Tomato_Septoria_leaf_spot": {
+        "plant":"Tomato", "disease":"Septoria Leaf Spot",
+        "symptoms":["Small circular spots"],
+        "treatment":["Remove infected leaves"],
+        "prevention":["Crop rotation"],
+        "additionalInfo":"Septoria lycopersici"
+    },
+    "Tomato_Spider_mites_Two_spotted_spider_mite": {
+        "plant":"Tomato", "disease":"Spider Mites",
+        "symptoms":["Yellow leaves, webbing"],
+        "treatment":["Miticide"],
+        "prevention":["Avoid dry stress"],
+        "additionalInfo":"Tetranychus urticae"
+    },
+    "Tomato__Target_Spot": {
+        "plant":"Tomato", "disease":"Target Spot",
+        "symptoms":["Dark circular lesions"],
+        "treatment":["Fungicide"],
+        "prevention":["Crop rotation"],
+        "additionalInfo":"Corynespora"
+    },
+    "Tomato__Tomato_mosaic_virus": {
+        "plant":"Tomato", "disease":"Mosaic Virus",
+        "symptoms":["Mottled leaves"],
+        "treatment":["Remove infected plants"],
+        "prevention":["Resistant varieties"],
+        "additionalInfo":"TMV virus"
+    },
+    "Tomato__Tomato_YellowLeaf__Curl_Virus": {
+        "plant":"Tomato", "disease":"Yellow Leaf Curl Virus",
+        "symptoms":["Yellow curling leaves"],
+        "treatment":["Remove infected plants"],
+        "prevention":["Resistant varieties"],
+        "additionalInfo":"TYLCV virus"
+    }
 }
 
 class_names = list(class_data.keys())
 num_classes = len(class_names)
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
 
+
+# SAFE MODEL LOADING
 if os.path.exists(MODEL_PATH):
     try:
         temp_model = models.mobilenet_v2(weights=None)
-        temp_model.classifier[1] = torch.nn.Linear(temp_model.classifier[1].in_features, num_classes)
+        temp_model.classifier[1] = torch.nn.Linear(
+            temp_model.classifier[1].in_features, num_classes
+        )
         checkpoint = torch.load(MODEL_PATH, map_location=device)
-        if 'classifier.1.weight' in checkpoint and checkpoint['classifier.1.weight'].shape[0] == num_classes:
+        ckpt_out_features = (
+            checkpoint["classifier.1.weight"].shape[0]
+            if "classifier.1.weight" in checkpoint
+            else None
+        )
+
+        if ckpt_out_features == num_classes:
             temp_model.load_state_dict(checkpoint)
             temp_model.to(device)
             temp_model.eval()
             model = temp_model
             print("✅ Model loaded successfully")
         else:
-            print("⚠ Checkpoint mismatch")
+            print(f"⚠ Checkpoint has {ckpt_out_features} classes, expected {num_classes}")
     except Exception as e:
         print("❌ Error loading model:", e)
 else:
     print("⚠ plant_model.pt not found")
 
-transform = transforms.Compose([transforms.Resize((128,128)), transforms.ToTensor(), transforms.Normalize([0.5]*3,[0.5]*3)])
 
+transform = transforms.Compose([
+    transforms.Resize((128, 128)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5]*3, [0.5]*3)
+])
+
+
+# PREDICT ROUTE
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
+
     try:
         image = Image.open(file.file).convert("RGB")
         image = transform(image).unsqueeze(0).to(device)
+
         with torch.no_grad():
             outputs = model(image)
             probs = torch.nn.functional.softmax(outputs, dim=1)
             confidence, predicted = torch.max(probs, 1)
+
         key = class_names[predicted.item()]
-        info = class_data.get(key, {"plant": key.split("_")[0],"disease":"Unknown","symptoms":[],"treatment":[],"prevention":[],"additionalInfo":"No info"})
-        return {"plant": info["plant"],"classKey": key,"diseases":[{"disease": info["disease"],"confidence": round(confidence.item()*100,2),"symptoms": info["symptoms"],"treatment": info["treatment"],"prevention": info["prevention"],"additionalInfo": info["additionalInfo"]}]}
+        info = class_data.get(key, {
+            "plant": key.split("_")[0],
+            "disease": "_".join(key.split("_")[1:]),
+            "symptoms": [], "treatment": [], "prevention": [],
+            "additionalInfo": "No information available"
+        })
+
+        return {
+            "plant": info["plant"],
+            "classKey": key,
+            "diseases": [{
+                "disease": info["disease"],
+                "confidence": round(confidence.item() * 100, 2),
+                "symptoms": info["symptoms"],
+                "treatment": info["treatment"],
+                "prevention": info["prevention"],
+                "additionalInfo": info["additionalInfo"]
+            }]
+        }
     except Exception as e:
+        print("❌ Predict error:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# -------------------------------
-# OFFLINE ORDER / COD
-# -------------------------------
-@app.post("/offline-order")
-async def offline_order(data: dict = Body(...)):
-    userEmail = data.get("userEmail","").strip().lower()
-    order = data.get("order")
-    user = users_collection.find_one({"email": userEmail})
-    if not user: raise HTTPException(status_code=400, detail="User not found")
-    users_collection.update_one({"email": userEmail},{"$push":{"purchasedItems":order}})
-    return {"message":"Order placed (COD)"}
 
-# -------------------------------
-# SQUARE PAYMENT
-# -------------------------------
-@app.post("/create-square-payment")
-async def create_square_payment(data: dict = Body(...)):
-    if not SQUARE_ACCESS_TOKEN or not SQUARE_LOCATION_ID:
-        raise HTTPException(status_code=500, detail="Square config missing")
-    amount = int(data.get("amount",0))
-    currency = data.get("currency","INR")
-    product_name = data.get("productName")
-    user_email = data.get("userEmail")
-    body = {
-        "idempotency_key": f"{user_email}-{random.randint(1000,9999)}",
-        "order":{"location_id": SQUARE_LOCATION_ID,"line_items":[{"name": product_name,"quantity":"1","base_price_money":{"amount": amount*100,"currency":currency}}]},
-        "ask_for_shipping_address": True,
-        "redirect_url": "https://yourfrontend.com/payment-success"
-    }
-    headers = {"Square-Version":"2023-06-08","Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}","Content-Type":"application/json"}
-    response = requests.post(f"{SQUARE_API_BASE}/checkout", json=body, headers=headers)
-    if response.status_code != 200: raise HTTPException(status_code=response.status_code, detail=response.text)
-    checkout_data = response.json()
-    checkout_url = checkout_data.get("checkout",{}).get("checkout_page_url")
-    if not checkout_url: raise HTTPException(status_code=500, detail="Failed to create Square checkout")
-    return {"checkoutUrl": checkout_url}
-
-# -------------------------------
-# AGRICULTURE NEWS
-# -------------------------------
+# NEWS API (no Razorpay dependency)
 @app.get("/api/news")
 async def get_agriculture_news():
-    if not GNEWS_KEY: return {"articles": [], "totalResults":0, "message":"News config missing"}
-    queries = ["India farmer news","Indian agriculture","farmers India"]
-    url = "https://gnews.io/api/v4/search"
-    for query in queries:
-        try:
-            r = requests.get(url, params={"q":query,"lang":"en","country":"in","max":15,"apikey":GNEWS_KEY}, timeout=10)
-            if r.status_code==200 and r.json().get("articles"): return r.json()
-        except: continue
-    try:
-        r = requests.get(url, params={"q":"news India","lang":"en","country":"in","max":10,"apikey":GNEWS_KEY}, timeout=10)
-        return r.json()
-    except: return {"articles": [], "totalResults":0, "message":"No news found"}
+    GNEWS_KEY = os.getenv("GNEWS_API_KEY")
+    if not GNEWS_KEY:
+        return {"articles": [], "totalResults": 0, "message": "News config missing"}
 
-# -------------------------------
-# MAIN
-# -------------------------------
+    queries = [
+        "India farmer news",
+        "Indian agriculture",
+        "farmers India"
+    ]
+    url = "https://gnews.io/api/v4/search"
+
+    for query in queries:
+        params = {
+            "q": query,
+            "lang": "en",
+            "country": "in",
+            "max": 15,
+            "apikey": GNEWS_KEY
+        }
+        try:
+            print(f"🔍 Trying query: '{query}'")
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                articles = data.get("articles", [])
+                print(f"✅ '{query}' → {len(articles)} articles")
+                if articles:
+                    print(f"🎉 Using query '{query}' with {len(articles)} articles")
+                    return data
+        except Exception as e:
+            print(f"❌ Query '{query}' failed: {e}")
+            continue
+
+    print("🔄 Trying fallback query...")
+    params = {
+        "q": "news India",
+        "lang": "en",
+        "country": "in",
+        "max": 10,
+        "apikey": GNEWS_KEY
+    }
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        print(f"📄 Fallback: {len(data.get('articles', []))} articles")
+        return data
+    except Exception:
+        pass
+
+    return {"articles": [], "totalResults": 0, "message": "No recent agriculture news found"}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 10000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    print(f"🚀 Starting server on 0.0.0.0:{port}")
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False
+    )
