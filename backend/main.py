@@ -12,13 +12,13 @@ import os
 import resend
 from dotenv import load_dotenv
 
-
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
-# ✅ CORRECT RESEND INITIALIZATION
+# ✅ RESEND INIT
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-resend.api_key = RESEND_API_KEY
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
 print(os.listdir())
 
@@ -54,7 +54,7 @@ def send_email_otp(to_email: str, otp: str):
 
         resend.Emails.send({
             "from": "PlantDoc AI <plantdoc@resend.dev>",
-            "to": to_email,
+            "to": [to_email],
             "subject": "Your PlantDoc Login OTP",
             "text": f"Your PlantDoc OTP is: {otp}\nValid for 10 minutes.",
             "html": f"""
@@ -103,7 +103,7 @@ async def verify_otp(email: str = Form(...), otp: str = Form(...)):
 # -------------------------------
 @app.post("/signup")
 async def signup(name: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    email = email.strip().lower()
+    email = email.strip().toLowerCase()
     if users_collection.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already exists")
 
@@ -179,28 +179,31 @@ async def mock_payment(
     razorpay_order_id = gen_mock_id("mock_order")
     razorpay_signature = gen_mock_id("mock_sign")
 
+    # Use .get() everywhere to avoid KeyError
+    purchased_item = {
+        "productName": product.get("productName") or product.get("name", "Unknown Product"),
+        "productCategory": product.get("productCategory") or product.get("category", "Uncategorized"),
+        "quantity": product.get("quantity", 1),
+        "pricePerUnit": product.get("pricePerUnit", 0),
+        "totalAmount": product.get("totalAmount", 0),
+        "paymentType": "ONLINE",
+        "paymentId": razorpay_payment_id,
+        **{k: v for k, v in product.items() if k not in ["name", "category", "quantity", "pricePerUnit", "totalAmount"]}
+    }
+
+    name = product.get("productName") or product.get("name", "Unknown Product")
+    total = product.get("totalAmount", 0)
+
     paymentResponse = {
         "razorpay_payment_id": razorpay_payment_id,
         "razorpay_order_id": razorpay_order_id,
         "razorpay_signature": razorpay_signature,
         "status": "captured",
-        "amount": product["totalAmount"] * 100,
+        "amount": int(total * 100),
         "currency": "INR",
     }
 
-    purchased_item = {
-        "productName": product["name"],
-        "productCategory": product["category"],
-        "quantity": product.get("quantity", 1),
-        "pricePerUnit": product["pricePerUnit"],
-        "totalAmount": product["totalAmount"],
-        "paymentType": "ONLINE",
-        "paymentId": razorpay_payment_id,
-        **{k: v for k, v in product.items() if k not in [
-            "name", "category", "quantity", "pricePerUnit", "totalAmount"
-        ]}
-    }
-
+    # Save to DB
     users_collection.update_one(
         {"email": userEmail},
         {"$push": {"purchasedItems": purchased_item}}
@@ -209,15 +212,15 @@ async def mock_payment(
     try:
         resend.Emails.send({
             "from": "PlantDoc AI <plantdoc@resend.dev>",
-            "to": userEmail,
-            "subject": f"Invoice for {product['name']}",
+            "to": [userEmail],
+            "subject": f"Invoice for {name}",
             "html": f"""
             <h2 style="color: #4CAF50;">Payment Successful! 🎉</h2>
             <h3>Order Details:</h3>
             <ul>
-                <li><strong>Product:</strong> {product['name']}</li>
-                <li><strong>Quantity:</strong> {product.get('quantity', 1)}</li>
-                <li><strong>Total:</strong> ₹{product['totalAmount']}</li>
+                <li><strong>Product:</strong> {name}</li>
+                <li><strong>Quantity:</strong> {purchased_item["quantity"]}</li>
+                <li><strong>Total:</strong> ₹{total}</li>
                 <li><strong>Payment ID:</strong> {razorpay_payment_id}</li>
             </ul>
             <p>Thank you for your purchase!</p>
@@ -242,6 +245,9 @@ async def offline_order(data: dict = Body(...)):
     userEmail = data.get("userEmail", "").strip().lower()
     order = data.get("order")
 
+    if not userEmail or not order:
+        raise HTTPException(status_code=400, detail="Missing userEmail or order")
+
     user = users_collection.find_one({"email": userEmail})
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
@@ -258,114 +264,112 @@ async def offline_order(data: dict = Body(...)):
 # -------------------------------
 class_data = {
     "Pepper__bell___Bacterial_spot": {
-        "plant":"Pepper", "disease":"Bacterial Spot",
-        "symptoms":["Brown spots on leaves"],
-        "treatment":["Use copper fungicide"],
-        "prevention":["Remove infected leaves"],
-        "additionalInfo":"Caused by Xanthomonas campestris"
+        "plant": "Pepper", "disease": "Bacterial Spot",
+        "symptoms": ["Brown spots on leaves"],
+        "treatment": ["Use copper fungicide"],
+        "prevention": ["Remove infected leaves"],
+        "additionalInfo": "Caused by Xanthomonas campestris"
     },
     "Pepper__bell___healthy": {
-        "plant":"Pepper", "disease":"Healthy",
-        "symptoms":[], "treatment":[], "prevention":[],
-        "additionalInfo":"No disease detected"
+        "plant": "Pepper", "disease": "Healthy",
+        "symptoms": [], "treatment": [], "prevention": [],
+        "additionalInfo": "No disease detected"
     },
     "Potato___Early_blight": {
-        "plant":"Potato", "disease":"Early Blight",
-        "symptoms":["Dark brown concentric spots"],
-        "treatment":["Chlorothalonil fungicide"],
-        "prevention":["Rotate crops"],
-        "additionalInfo":"Alternaria solani fungus"
+        "plant": "Potato", "disease": "Early Blight",
+        "symptoms": ["Dark brown concentric spots"],
+        "treatment": ["Chlorothalonil fungicide"],
+        "prevention": ["Rotate crops"],
+        "additionalInfo": "Alternaria solani fungus"
     },
     "Potato___Late_blight": {
-        "plant":"Potato", "disease":"Late Blight",
-        "symptoms":["Dark lesions, white mold"],
-        "treatment":["Mancozeb fungicide"],
-        "prevention":["Resistant varieties"],
-        "additionalInfo":"Phytophthora infestans"
+        "plant": "Potato", "disease": "Late Blight",
+        "symptoms": ["Dark lesions, white mold"],
+        "treatment": ["Mancozeb fungicide"],
+        "prevention": ["Resistant varieties"],
+        "additionalInfo": "Phytophthora infestans"
     },
     "Potato___healthy": {
-        "plant":"Potato", "disease":"Healthy",
-        "symptoms":[], "treatment":[], "prevention":[],
-        "additionalInfo":"No disease detected"
+        "plant": "Potato", "disease": "Healthy",
+        "symptoms": [], "treatment": [], "prevention": [],
+        "additionalInfo": "No disease detected"
     },
     "Tomato_Bacterial_spot": {
-        "plant":"Tomato", "disease":"Bacterial Spot",
-        "symptoms":["Small dark spots on leaves"],
-        "treatment":["Copper fungicide"],
-        "prevention":["Remove infected plants"],
-        "additionalInfo":"Xanthomonas"
+        "plant": "Tomato", "disease": "Bacterial Spot",
+        "symptoms": ["Small dark spots on leaves"],
+        "treatment": ["Copper fungicide"],
+        "prevention": ["Remove infected plants"],
+        "additionalInfo": "Xanthomonas"
     },
     "Tomato_Early_blight": {
-        "plant":"Tomato", "disease":"Early Blight",
-        "symptoms":["Brown concentric spots"],
-        "treatment":["Fungicide"],
-        "prevention":["Crop rotation"],
-        "additionalInfo":"Alternaria"
+        "plant": "Tomato", "disease": "Early Blight",
+        "symptoms": ["Brown concentric spots"],
+        "treatment": ["Fungicide"],
+        "prevention": ["Crop rotation"],
+        "additionalInfo": "Alternaria"
     },
     "Tomato_Late_blight": {
-        "plant":"Tomato", "disease":"Late Blight",
-        "symptoms":["Brown lesions"],
-        "treatment":["Fungicide"],
-        "prevention":["Resistant varieties"],
-        "additionalInfo":"Phytophthora"
+        "plant": "Tomato", "disease": "Late Blight",
+        "symptoms": ["Brown lesions"],
+        "treatment": ["Fungicide"],
+        "prevention": ["Resistant varieties"],
+        "additionalInfo": "Phytophthora"
     },
     "Tomato_healthy": {
-        "plant":"Tomato", "disease":"Healthy",
-        "symptoms":[], "treatment":[], "prevention":[],
-        "additionalInfo":"No disease detected"
+        "plant": "Tomato", "disease": "Healthy",
+        "symptoms": [], "treatment": [], "prevention": [],
+        "additionalInfo": "No disease detected"
     },
     "Tomato_Leaf_Mold": {
-        "plant":"Tomato", "disease":"Leaf Mold",
-        "symptoms":["Yellow spots under leaves"],
-        "treatment":["Fungicide"],
-        "prevention":["Avoid wet foliage"],
-        "additionalInfo":"Passalora fulva"
+        "plant": "Tomato", "disease": "Leaf Mold",
+        "symptoms": ["Yellow spots under leaves"],
+        "treatment": ["Fungicide"],
+        "prevention": ["Avoid wet foliage"],
+        "additionalInfo": "Passalora fulva"
     },
     "Tomato_Septoria_leaf_spot": {
-        "plant":"Tomato", "disease":"Septoria Leaf Spot",
-        "symptoms":["Small circular spots"],
-        "treatment":["Remove infected leaves"],
-        "prevention":["Crop rotation"],
-        "additionalInfo":"Septoria lycopersici"
+        "plant": "Tomato", "disease": "Septoria Leaf Spot",
+        "symptoms": ["Small circular spots"],
+        "treatment": ["Remove infected leaves"],
+        "prevention": ["Crop rotation"],
+        "additionalInfo": "Septoria lycopersici"
     },
     "Tomato_Spider_mites_Two_spotted_spider_mite": {
-        "plant":"Tomato", "disease":"Spider Mites",
-        "symptoms":["Yellow leaves, webbing"],
-        "treatment":["Miticide"],
-        "prevention":["Avoid dry stress"],
-        "additionalInfo":"Tetranychus urticae"
+        "plant": "Tomato", "disease": "Spider Mites",
+        "symptoms": ["Yellow leaves, webbing"],
+        "treatment": ["Miticide"],
+        "prevention": ["Avoid dry stress"],
+        "additionalInfo": "Tetranychus urticae"
     },
     "Tomato__Target_Spot": {
-        "plant":"Tomato", "disease":"Target Spot",
-        "symptoms":["Dark circular lesions"],
-        "treatment":["Fungicide"],
-        "prevention":["Crop rotation"],
-        "additionalInfo":"Corynespora"
+        "plant": "Tomato", "disease": "Target Spot",
+        "symptoms": ["Dark circular lesions"],
+        "treatment": ["Fungicide"],
+        "prevention": ["Crop rotation"],
+        "additionalInfo": "Corynespora"
     },
     "Tomato__Tomato_mosaic_virus": {
-        "plant":"Tomato", "disease":"Mosaic Virus",
-        "symptoms":["Mottled leaves"],
-        "treatment":["Remove infected plants"],
-        "prevention":["Resistant varieties"],
-        "additionalInfo":"TMV virus"
+        "plant": "Tomato", "disease": "Mosaic Virus",
+        "symptoms": ["Mottled leaves"],
+        "treatment": ["Remove infected plants"],
+        "prevention": ["Resistant varieties"],
+        "additionalInfo": "TMV virus"
     },
     "Tomato__Tomato_YellowLeaf__Curl_Virus": {
-        "plant":"Tomato", "disease":"Yellow Leaf Curl Virus",
-        "symptoms":["Yellow curling leaves"],
-        "treatment":["Remove infected plants"],
-        "prevention":["Resistant varieties"],
-        "additionalInfo":"TYLCV virus"
+        "plant": "Tomato", "disease": "Yellow Leaf Curl Virus",
+        "symptoms": ["Yellow curling leaves"],
+        "treatment": ["Remove infected plants"],
+        "prevention": ["Resistant varieties"],
+        "additionalInfo": "TYLCV virus"
     }
 }
 
 class_names = list(class_data.keys())
 num_classes = len(class_names)
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
-
 
 # SAFE MODEL LOADING
 if os.path.exists(MODEL_PATH):
@@ -375,11 +379,7 @@ if os.path.exists(MODEL_PATH):
             temp_model.classifier[1].in_features, num_classes
         )
         checkpoint = torch.load(MODEL_PATH, map_location=device)
-        ckpt_out_features = (
-            checkpoint["classifier.1.weight"].shape[0]
-            if "classifier.1.weight" in checkpoint
-            else None
-        )
+        ckpt_out_features = checkpoint["classifier.1.weight"].shape[0] if "classifier.1.weight" in checkpoint else None
 
         if ckpt_out_features == num_classes:
             temp_model.load_state_dict(checkpoint)
@@ -394,11 +394,10 @@ if os.path.exists(MODEL_PATH):
 else:
     print("⚠ plant_model.pt not found")
 
-
 transform = transforms.Compose([
     transforms.Resize((128, 128)),
     transforms.ToTensor(),
-    transforms.Normalize([0.5]*3, [0.5]*3)
+    transforms.Normalize([0.5] * 3, [0.5] * 3)
 ])
 
 
@@ -421,7 +420,9 @@ async def predict(file: UploadFile = File(...)):
         info = class_data.get(key, {
             "plant": key.split("_")[0],
             "disease": "_".join(key.split("_")[1:]),
-            "symptoms": [], "treatment": [], "prevention": [],
+            "symptoms": [],
+            "treatment": [],
+            "prevention": [],
             "additionalInfo": "No information available"
         })
 
@@ -442,7 +443,7 @@ async def predict(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-# NEWS API (no Razorpay dependency)
+# NEWS API (no Razorpay)
 @app.get("/api/news")
 async def get_agriculture_news():
     GNEWS_KEY = os.getenv("GNEWS_API_KEY")
@@ -494,16 +495,16 @@ async def get_agriculture_news():
     except Exception:
         pass
 
-    return {"articles": [], "totalResults": 0, "message": "No recent agriculture news found"}
-
-
+    return {"articles": [], "totalResults": 0, "message": "No recent agriculture news found"
+    }
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", 10000))
     print(f"🚀 Starting server on 0.0.0.0:{port}")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=False
+        reload=False,
+        log_level="info",
+        proxy_headers=True
     )
