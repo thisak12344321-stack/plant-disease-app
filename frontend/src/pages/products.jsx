@@ -55,6 +55,7 @@ export default function Products({
 
   const isValidIndianPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 
+  // ----------------- COD -----------------
   const handleOfflineOrder = async (product) => {
     if (!orderDetails.name || !orderDetails.phone || !orderDetails.address) {
       setSuccessMessage("Please fill all details");
@@ -97,60 +98,60 @@ export default function Products({
     } catch (err) { alert("Server error"); }
   };
 
+  // ----------------- SQUARE PAYMENT -----------------
   const handlePayment = async (product) => {
-    if (!orderDetails.name || !orderDetails.phone) { alert("Fill name & phone"); return; }
-    if (!isValidIndianPhone(orderDetails.phone)) { alert("Enter valid 10-digit phone"); return; }
-    if (!window.Razorpay) { alert("Razorpay not loaded"); return; }
+    if (!orderDetails.name || !orderDetails.phone) {
+      setSuccessMessage("Fill name & phone");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
+    if (!isValidIndianPhone(orderDetails.phone)) {
+      setSuccessMessage("Enter valid 10-digit phone");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
     if (!user) {
       setSuccessMessage("Please login first");
       setTimeout(() => setSuccessMessage(""), 3000);
       return;
     }
 
-    const totalAmount = product.price * quantity;
-    const options = {
-      key: 'rzp_test_YOUR_KEY',
-      amount: totalAmount * 100,
-      currency: 'INR',
-      name: 'PlantCare AI',
-      description: product.name,
-      prefill: { name: orderDetails.name, email: user.email, contact: orderDetails.phone },
-      theme: { color: '#4ADE80' },
-      handler: async function (response) {
-        const purchasedItem = {
+    try {
+      const totalAmount = product.price * quantity;
+      const res = await fetch("https://plant-disease-app-qigz.onrender.com/create-square-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalAmount,
+          currency: "INR",
           productName: product.name,
-          productCategory: product.category,
-          quantity,
-          pricePerUnit: product.price,
-          totalAmount,
-          ...orderDetails,
-          paymentType: "ONLINE",
-          paymentId: response.razorpay_payment_id
-        };
+          userEmail: user.email
+        })
+      });
 
-        const res = await fetch("https://plant-disease-app-qigz.onrender.com/purchase", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userEmail: user.email, product: purchasedItem, paymentDetails: response })
-        });
-        if (res.ok) setUser(prev => ({ ...prev, purchasedItems: [...(prev.purchasedItems || []), purchasedItem] }));
-        setShowPopup(false);
-        setSuccessMessage(`✅ Payment successful: ${product.name}`);
-        setTimeout(() => setSuccessMessage(''), 4000);
-      }
-    };
-    new window.Razorpay(options).open();
+      const data = await res.json();
+      if (!res.ok || !data.checkoutUrl) throw new Error(data.error || "Payment creation failed");
+
+      // Redirect to Square Checkout
+      window.open(data.checkoutUrl, "_blank");
+      setSuccessMessage(`Redirected to payment for ${product.name}`);
+      setTimeout(() => setSuccessMessage(""), 4000);
+
+    } catch (err) {
+      console.error("Square payment error:", err);
+      setSuccessMessage("Payment initiation failed");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
   };
 
+  // ----------------- RENDER -----------------
   return (
     <div style={styles.container}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Fraunces:opsz,wght@9..144,700&display=swap');
-        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(74, 222, 128, 0.3); border-radius: 10px; }
-        
         .aura-bg {
           position: fixed;
           top: 0; left: 0; width: 100%; height: 100%;
@@ -176,7 +177,7 @@ export default function Products({
         )}
       </AnimatePresence>
 
-      {/* 🟢 AI RECOMMENDED SECTION */}
+      {/* Recommended Products */}
       {diagnosisResult && recommendedProducts.length > 0 && (
         <div ref={recommendedRef} style={styles.section}>
           <div style={styles.badge}>Precision Protocol</div>
@@ -206,7 +207,7 @@ export default function Products({
         </div>
       )}
 
-      {/* 🟢 ALL PRODUCTS */}
+      {/* All Products */}
       <div style={styles.section}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
           <h1 style={styles.heroTitle}>Botanical <span style={{ color: '#4ADE80' }}>Supply</span></h1>
@@ -233,7 +234,7 @@ export default function Products({
         </div>
       </div>
 
-      {/* 🟢 CHECKOUT POPUP */}
+      {/* Checkout Modal */}
       <AnimatePresence>
         {showPopup && selectedProduct && (
           <div style={styles.modalOverlay}>
@@ -279,7 +280,9 @@ export default function Products({
     </div>
   );
 }
-
+// ---------- Styles ----------
+// Keep your same styles object from your previous component
+/* Copy all styles from your previous Products.jsx */ 
 const styles = {
   container: {
     maxWidth: '1200px',
