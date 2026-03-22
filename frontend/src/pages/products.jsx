@@ -27,7 +27,7 @@ export default function Products({
 
   const diseaseNames = diagnosisResult?.diseases
     ?.map(d => d.disease?.toLowerCase())
-    .filter(d => d && d !== "healthy");
+    ?.filter(d => d && d !== "healthy");
 
   let recommendedProducts = [];
   if (diseaseNames && diseaseNames.length > 0) {
@@ -55,7 +55,6 @@ export default function Products({
 
   const isValidIndianPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
 
-  // ----------------- COD -----------------
   const handleOfflineOrder = async (product) => {
     if (!orderDetails.name || !orderDetails.phone || !orderDetails.address) {
       setSuccessMessage("Please fill all details");
@@ -95,19 +94,18 @@ export default function Products({
         setSuccessMessage(`✅ Order placed: ${product.name}`);
         setTimeout(() => setSuccessMessage(''), 4000);
       }
-    } catch (err) { alert("Server error"); }
+    } catch (err) {
+      alert("Server error");
+    }
   };
 
-  // ----------------- SQUARE PAYMENT -----------------
   const handlePayment = async (product) => {
     if (!orderDetails.name || !orderDetails.phone) {
-      setSuccessMessage("Fill name & phone");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      alert("Fill name & phone");
       return;
     }
     if (!isValidIndianPhone(orderDetails.phone)) {
-      setSuccessMessage("Enter valid 10-digit phone");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      alert("Enter valid 10-digit phone");
       return;
     }
     if (!user) {
@@ -116,42 +114,62 @@ export default function Products({
       return;
     }
 
+    const totalAmount = product.price * quantity;
+
+    const purchasedItem = {
+      productName: product.name,
+      productCategory: product.category,
+      quantity,
+      pricePerUnit: product.price,
+      totalAmount,
+      ...orderDetails,
+      paymentType: "ONLINE"
+    };
+
+    setShowPopup(false);
+
     try {
-      const totalAmount = product.price * quantity;
-      const res = await fetch("https://plant-disease-app-qigz.onrender.com/create-square-payment", {
+      const res = await fetch("https://plant-disease-app-qigz.onrender.com/mock-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: totalAmount,
-          currency: "INR",
-          productName: product.name,
-          userEmail: user.email
+          userEmail: user.email,
+          product: purchasedItem,
+          shouldSucceed: true  // set false to test "failed" case
         })
       });
 
+      if (!res.ok) {
+        const err = await res.json();
+        throw err;
+      }
+
       const data = await res.json();
-      if (!res.ok || !data.checkoutUrl) throw new Error(data.error || "Payment creation failed");
+      const savedItem = data.userPurchasedItem;
 
-      // Redirect to Square Checkout
-      window.open(data.checkoutUrl, "_blank");
-      setSuccessMessage(`Redirected to payment for ${product.name}`);
-      setTimeout(() => setSuccessMessage(""), 4000);
+      setUser(prev => ({
+        ...prev,
+        purchasedItems: [...(prev.purchasedItems || []), savedItem]
+      }));
 
+      setSuccessMessage(`✅ Mock payment successful: ${product.name}`);
     } catch (err) {
-      console.error("Square payment error:", err);
-      setSuccessMessage("Payment initiation failed");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      console.error("Mock payment error:", err);
+      setSuccessMessage("Mock payment failed");
     }
+
+    setTimeout(() => setSuccessMessage(''), 4000);
   };
 
-  // ----------------- RENDER -----------------
   return (
     <div style={styles.container}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Fraunces:opsz,wght@9..144,700&display=swap');
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(74, 222, 128, 0.3); border-radius: 10px; }
+        
         .aura-bg {
           position: fixed;
           top: 0; left: 0; width: 100%; height: 100%;
@@ -177,7 +195,7 @@ export default function Products({
         )}
       </AnimatePresence>
 
-      {/* Recommended Products */}
+      {/* 🟢 AI RECOMMENDED SECTION */}
       {diagnosisResult && recommendedProducts.length > 0 && (
         <div ref={recommendedRef} style={styles.section}>
           <div style={styles.badge}>Precision Protocol</div>
@@ -207,13 +225,13 @@ export default function Products({
         </div>
       )}
 
-      {/* All Products */}
+      {/* 🟢 ALL PRODUCTS */}
       <div style={styles.section}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
           <h1 style={styles.heroTitle}>Botanical <span style={{ color: '#4ADE80' }}>Supply</span></h1>
           <p style={styles.subText}>Browse our professional-grade agricultural catalog</p>
         </div>
-        
+
         <div style={styles.productGrid}>
           {allProducts.map(p => (
             <motion.div
@@ -234,7 +252,7 @@ export default function Products({
         </div>
       </div>
 
-      {/* Checkout Modal */}
+      {/* 🟢 CHECKOUT POPUP */}
       <AnimatePresence>
         {showPopup && selectedProduct && (
           <div style={styles.modalOverlay}>
@@ -248,30 +266,64 @@ export default function Products({
 
               <p style={styles.modalLabel}>Selected Item</p>
               <h2 style={styles.modalHeader}>{selectedProduct.name}</h2>
-              
+
               <div style={styles.quantityRow}>
-                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} style={styles.qtyBtn}>−</button>
+                <button
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  style={styles.qtyBtn}
+                >
+                  −
+                </button>
                 <div style={styles.qtyDisplay}>
                   <span style={styles.qtyText}>{quantity}</span>
                   <span style={{ fontSize: '0.6rem', color: '#71717A' }}>UNITS</span>
                 </div>
-                <button onClick={() => setQuantity(q => q + 1)} style={styles.qtyBtn}>+</button>
+                <button
+                  onClick={() => setQuantity(q => q + 1)}
+                  style={styles.qtyBtn}
+                >
+                  +
+                </button>
               </div>
 
               <div style={styles.totalBox}>
                 <span>Payable Amount</span>
-                <span style={{ color: '#4ADE80', fontWeight: '800' }}>₹{selectedProduct.price * quantity}</span>
+                <span style={{ color: '#4ADE80', fontWeight: '800' }}>
+                  ₹{selectedProduct.price * quantity}
+                </span>
               </div>
 
               <div style={styles.inputGroup}>
-                <input placeholder="Full Name" style={styles.input} onChange={e => setOrderDetails({ ...orderDetails, name: e.target.value })} />
-                <input placeholder="Mobile Number" style={styles.input} onChange={e => setOrderDetails({ ...orderDetails, phone: e.target.value })} />
-                <textarea placeholder="Delivery Address" style={{ ...styles.input, height: '100px', resize: 'none' }} onChange={e => setOrderDetails({ ...orderDetails, address: e.target.value })} />
+                <input
+                  placeholder="Full Name"
+                  style={styles.input}
+                  onChange={e => setOrderDetails({ ...orderDetails, name: e.target.value })}
+                />
+                <input
+                  placeholder="Mobile Number"
+                  style={styles.input}
+                  onChange={e => setOrderDetails({ ...orderDetails, phone: e.target.value })}
+                />
+                <textarea
+                  placeholder="Delivery Address"
+                  style={{ ...styles.input, height: '100px', resize: 'none' }}
+                  onChange={e => setOrderDetails({ ...orderDetails, address: e.target.value })}
+                />
               </div>
 
               <div style={styles.actionRow}>
-                <button onClick={() => handleOfflineOrder(selectedProduct)} style={styles.codBtn}>Offline COD</button>
-                <button onClick={() => handlePayment(selectedProduct)} style={styles.onlineBtn}>Secure Checkout</button>
+                <button
+                  onClick={() => handleOfflineOrder(selectedProduct)}
+                  style={styles.codBtn}
+                >
+                  Offline COD
+                </button>
+                <button
+                  onClick={() => handlePayment(selectedProduct)}
+                  style={styles.onlineBtn}
+                >
+                  Secure Checkout
+                </button>
               </div>
             </motion.div>
           </div>
@@ -280,9 +332,7 @@ export default function Products({
     </div>
   );
 }
-// ---------- Styles ----------
-// Keep your same styles object from your previous component
-/* Copy all styles from your previous Products.jsx */ 
+
 const styles = {
   container: {
     maxWidth: '1200px',
@@ -330,8 +380,16 @@ const styles = {
     marginBottom: '40px',
     fontFamily: "'Fraunces', serif"
   },
-  heroTitle: { fontSize: '4rem', fontWeight: '800', margin: '0 0 10px 0', fontFamily: "'Fraunces', serif" },
-  subText: { color: '#71717A', fontSize: '1.1rem' },
+  heroTitle: {
+    fontSize: '4rem',
+    fontWeight: '800',
+    margin: '0 0 10px 0',
+    fontFamily: "'Fraunces', serif"
+  },
+  subText: {
+    color: '#71717A',
+    fontSize: '1.1rem'
+  },
   horizontalScroll: {
     display: 'flex',
     gap: '25px',
@@ -389,8 +447,8 @@ const styles = {
     textTransform: 'uppercase',
     fontWeight: '800',
     letterSpacing: '1.5px',
-    marginBottom: '15px'
-  },
+    marginBottom: '15px'},
+
   cardTitle: { fontSize: '1.4rem', fontWeight: '700', margin: '0 0 15px 0', color: '#fff' },
   priceTag: { fontSize: '1.8rem', fontWeight: '300', color: '#4ADE80', marginBottom: '25px' },
   buyBtn: {
