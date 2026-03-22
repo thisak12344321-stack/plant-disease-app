@@ -119,7 +119,7 @@ function App() {
               <div style={styles.logoIcon}>
                 <div style={styles.logoInnerIcon}>🌿</div>
               </div>
-              <h1 style={styles.logoText}>PlantCare <span style={{color: '#4ADE80', fontWeight: '400'}}>AI</span></h1>
+              <h1 style={styles.logoText}>PlantCare <span style={{color: '#4ADE80', fontWeight: '400'}}></span></h1>
             </div>
 
             <div style={styles.navLinks}>
