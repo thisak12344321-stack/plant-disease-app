@@ -175,10 +175,10 @@ export default function Products({
           purchasedItems: [...(prev.purchasedItems || []), savedItem]
         }));
 
-        setSuccessMessage(`✅ Fake payment received via UPI: ${upiId}`);
+        setSuccessMessage(`✅ payment received via UPI: ${upiId}`);
       } catch (err) {
-        console.error("Mock payment error:", err);
-        setSuccessMessage("Fake UPI payment failed");
+        console.error("payment error:", err);
+        setSuccessMessage("UPI payment failed");
       }
 
       setShowPopup(false);
@@ -256,7 +256,7 @@ export default function Products({
       <div style={styles.section}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
           <h1 style={styles.heroTitle}>Botanical <span style={{ color: '#4ADE80' }}>Supply</span></h1>
-          <p style={styles.subText}>Browse our professional-grade agricultural catalog</p>
+          <p style={styles.subText}>Browse our agricultural product catalog</p>
         </div>
 
         <div style={styles.productGrid}>
