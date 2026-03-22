@@ -95,17 +95,20 @@ export default function Products({
         setTimeout(() => setSuccessMessage(''), 4000);
       }
     } catch (err) {
-      alert("Server error");
+      setSuccessMessage("Server error");
+      setTimeout(() => setSuccessMessage(""), 3000);
     }
   };
 
   const handlePayment = async (product) => {
     if (!orderDetails.name || !orderDetails.phone) {
-      alert("Fill name & phone");
+      setSuccessMessage("Fill name & phone");
+      setTimeout(() => setSuccessMessage(""), 3000);
       return;
     }
     if (!isValidIndianPhone(orderDetails.phone)) {
-      alert("Enter valid 10-digit phone");
+      setSuccessMessage("Enter valid 10-digit phone");
+      setTimeout(() => setSuccessMessage(""), 3000);
       return;
     }
     if (!user) {
@@ -115,7 +118,6 @@ export default function Products({
     }
 
     const totalAmount = product.price * quantity;
-
     const purchasedItem = {
       productName: product.name,
       productCategory: product.category,
@@ -123,7 +125,7 @@ export default function Products({
       pricePerUnit: product.price,
       totalAmount,
       ...orderDetails,
-      paymentType: "ONLINE"
+      paymentType: "ONLINE",
     };
 
     setShowPopup(false);
@@ -135,7 +137,7 @@ export default function Products({
         body: JSON.stringify({
           userEmail: user.email,
           product: purchasedItem,
-          shouldSucceed: true  // set false to test "failed" case
+          shouldSucceed: true   // change to false to test failure
         })
       });
 
@@ -441,108 +443,110 @@ const styles = {
     position: 'relative',
     transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
   },
-  categoryTag: {
-    fontSize: '0.6rem',
-    color: '#71717A',
-    textTransform: 'uppercase',
-    fontWeight: '800',
-    letterSpacing: '1.5px',
-    marginBottom: '15px'},
-
-  cardTitle: { fontSize: '1.4rem', fontWeight: '700', margin: '0 0 15px 0', color: '#fff' },
-  priceTag: { fontSize: '1.8rem', fontWeight: '300', color: '#4ADE80', marginBottom: '25px' },
-  buyBtn: {
-    width: '100%',
-    padding: '16px',
-    borderRadius: '20px',
-    border: '1px solid rgba(74, 222, 128, 0.3)',
-    background: 'rgba(74, 222, 128, 0.05)',
-    color: '#4ADE80',
-    fontWeight: '800',
-    cursor: 'pointer',
-    transition: '0.3s'
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0, left: 0, width: '100%', height: '100%',
-    background: 'rgba(0,0,0,0.85)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 4000,
-    backdropFilter: 'blur(20px)',
-    padding: '20px' // Provides a safety buffer for the screen edges
-  },
-  modalContent: { 
-    background: '#0A0F0C', 
-    padding: '30px 24px 20px 24px', // Extra padding at top for the 'X' button
-    borderRadius: '28px', 
-    maxWidth: '380px', 
-    width: '100%', 
-    position: 'relative', // CRITICAL: This allows the 'X' to be positioned relative to this box
-    border: '1px solid rgba(255,255,255,0.08)',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-
-  closeModalBtn: { 
-    position: 'absolute', // Moves it out of the normal layout flow
-    top: '16px', 
-    right: '16px', 
-    background: 'rgba(74, 222, 128, 0.1)', // Subtle circular background
-    border: 'none', 
-    color: '#4ADE80', 
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    transition: '0.2s',
-    zIndex: 10 // Ensures it stays above other elements
-  },
-  modalHeader: { 
-    fontSize: '1.2rem', 
-    fontWeight: '800', 
-    marginBottom: '12px', // Tighter header
-    textAlign: 'center' 
-  },
-  quantityRow: { 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    gap: '15px', 
-    marginBottom: '15px', // Reduced from 20px
-    background: 'rgba(255,255,255,0.03)', 
-    padding: '10px', 
-    borderRadius: '14px' 
-  },
-  totalBox: { 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    padding: '10px 15px', 
-    background: 'rgba(74, 222, 128, 0.05)', 
-    borderRadius: '12px', 
-    marginBottom: '15px', // Reduced from 20px
-    fontSize: '0.85rem' 
-  },
-  inputGroup: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: '8px', // Very tight gap for inputs
-    marginBottom: '18px' // Reduced bottom margin
-  },
-  input: { 
-    padding: '10px 12px', // Slimmer inputs
-    borderRadius: '12px', 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    background: 'rgba(255,255,255,0.02)', 
-    color: '#fff', 
-    outline: 'none', 
-    fontSize: '0.85rem' 
-  },
-  actionRow: { 
-    display: 'flex', 
-    gap: '10px',
-    marginTop: 'auto' // Pushes buttons to the bottom of the padding area without extra air
-  }};
+    categoryTag: {
+        fontSize: '0.6rem',
+        color: '#71717A',
+        textTransform: 'uppercase',
+        fontWeight: '800',
+        letterSpacing: '1.5px',
+        marginBottom: '15px'},
+    
+    
+      cardTitle: { fontSize: '1.4rem', fontWeight: '700', margin: '0 0 15px 0', color: '#fff' },
+      priceTag: { fontSize: '1.8rem', fontWeight: '300', color: '#4ADE80', marginBottom: '25px' },
+      buyBtn: {
+        width: '100%',
+        padding: '16px',
+        borderRadius: '20px',
+        border: '1px solid rgba(74, 222, 128, 0.3)',
+        background: 'rgba(74, 222, 128, 0.05)',
+        color: '#4ADE80',
+        fontWeight: '800',
+        cursor: 'pointer',
+        transition: '0.3s'
+      },
+      modalOverlay: {
+        position: 'fixed',
+        top: 0, left: 0, width: '100%', height: '100%',
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 4000,
+        backdropFilter: 'blur(20px)',
+        padding: '20px' // Provides a safety buffer for the screen edges
+      },
+      modalContent: { 
+        background: '#0A0F0C', 
+        padding: '30px 24px 20px 24px', // Extra padding at top for the 'X' button
+        borderRadius: '28px', 
+        maxWidth: '380px', 
+        width: '100%', 
+        position: 'relative', // CRITICAL: This allows the 'X' to be positioned relative to this box
+        border: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex',
+        flexDirection: 'column'
+      },
+    
+    
+      closeModalBtn: { 
+        position: 'absolute', // Moves it out of the normal layout flow
+        top: '16px', 
+        right: '16px', 
+        background: 'rgba(74, 222, 128, 0.1)', // Subtle circular background
+        border: 'none', 
+        color: '#4ADE80', 
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: '1rem',
+        transition: '0.2s',
+        zIndex: 10 // Ensures it stays above other elements
+      },
+      modalHeader: { 
+        fontSize: '1.2rem', 
+        fontWeight: '800', 
+        marginBottom: '12px', // Tighter header
+        textAlign: 'center' 
+      },
+      quantityRow: { 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        gap: '15px', 
+        marginBottom: '15px', // Reduced from 20px
+        background: 'rgba(255,255,255,0.03)', 
+        padding: '10px', 
+        borderRadius: '14px' 
+      },
+      totalBox: { 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        padding: '10px 15px', 
+        background: 'rgba(74, 222, 128, 0.05)', 
+        borderRadius: '12px', 
+        marginBottom: '15px', // Reduced from 20px
+        fontSize: '0.85rem' 
+      },
+      inputGroup: { 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '8px', // Very tight gap for inputs
+        marginBottom: '18px' // Reduced bottom margin
+      },
+      input: { 
+        padding: '10px 12px', // Slimmer inputs
+        borderRadius: '12px', 
+        border: '1px solid rgba(255,255,255,0.05)', 
+        background: 'rgba(255,255,255,0.02)', 
+        color: '#fff', 
+        outline: 'none', 
+        fontSize: '0.85rem' 
+      },
+      actionRow: { 
+        display: 'flex', 
+        gap: '10px',
+        marginTop: 'auto' // Pushes buttons to the bottom of the padding area without extra air
+      }};
