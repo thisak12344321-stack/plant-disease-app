@@ -88,7 +88,7 @@ export default function Upload({ goToPage, handleImageUpload, isLoading, setDiag
 
       {/* 🟢 HEADER AREA */}
       <header style={styles.header}>
-        <div style={styles.microBadge}>LABORATORY GRADE AI</div>
+       
         <h1 style={styles.title}>Visual <span style={{color: '#4ADE80'}}>Diagnostic</span></h1>
         <p style={styles.subtitle}>
           Securely upload leaf imagery for instant health verification.
