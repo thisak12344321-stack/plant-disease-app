@@ -16,8 +16,8 @@ export default function Products({
   const [orderDetails, setOrderDetails] = useState({ name: '', phone: '', address: '' });
   const [successMessage, setSuccessMessage] = useState('');
 
-  // UPI mock flow
-  const [paymentStep, setPaymentStep] = useState("checkout"); // "checkout" | "upi" | "confirm"
+ 
+  const [paymentStep, setPaymentStep] = useState("checkout");
   const [upiId, setUpiId] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
@@ -176,6 +176,8 @@ export default function Products({
         }));
 
         setSuccessMessage(`✅ payment received via UPI: ${upiId}`);
+        setTimeout(() => setSuccessMessage(""), 3000);
+      return;
       } catch (err) {
         console.error("payment error:", err);
         setSuccessMessage("UPI payment failed");
@@ -559,15 +561,15 @@ const styles = {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 4000,
         backdropFilter: 'blur(20px)',
-        padding: '20px' // Provides a safety buffer for the screen edges
+        padding: '20px'
       },
       modalContent: { 
         background: '#0A0F0C', 
-        padding: '30px 24px 20px 24px', // Extra padding at top for the 'X' button
+        padding: '30px 24px 20px 24px',
         borderRadius: '28px', 
         maxWidth: '380px', 
         width: '100%', 
-        position: 'relative', // CRITICAL: This allows the 'X' to be positioned relative to this box
+        position: 'relative',
         border: '1px solid rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column'
@@ -575,10 +577,10 @@ const styles = {
     
     
       closeModalBtn: { 
-        position: 'absolute', // Moves it out of the normal layout flow
+        position: 'absolute', 
         top: '16px', 
         right: '16px', 
-        background: 'rgba(74, 222, 128, 0.1)', // Subtle circular background
+        background: 'rgba(74, 222, 128, 0.1)', 
         border: 'none', 
         color: '#4ADE80', 
         width: '32px',
@@ -590,12 +592,12 @@ const styles = {
         cursor: 'pointer',
         fontSize: '1rem',
         transition: '0.2s',
-        zIndex: 10 // Ensures it stays above other elements
+        zIndex: 10 
       },
       modalHeader: { 
         fontSize: '1.2rem', 
         fontWeight: '800', 
-        marginBottom: '12px', // Tighter header
+        marginBottom: '12px',
         textAlign: 'center' 
       },
       quantityRow: { 
@@ -603,7 +605,7 @@ const styles = {
         justifyContent: 'center', 
         alignItems: 'center', 
         gap: '15px', 
-        marginBottom: '15px', // Reduced from 20px
+        marginBottom: '15px', 
         background: 'rgba(255,255,255,0.03)', 
         padding: '10px', 
         borderRadius: '14px' 
@@ -614,17 +616,17 @@ const styles = {
         padding: '10px 15px', 
         background: 'rgba(74, 222, 128, 0.05)', 
         borderRadius: '12px', 
-        marginBottom: '15px', // Reduced from 20px
+        marginBottom: '15px',
         fontSize: '0.85rem' 
       },
       inputGroup: { 
         display: 'flex', 
         flexDirection: 'column', 
-        gap: '8px', // Very tight gap for inputs
-        marginBottom: '18px' // Reduced bottom margin
+        gap: '8px', 
+        marginBottom: '18px' 
       },
       input: { 
-        padding: '10px 12px', // Slimmer inputs
+        padding: '10px 12px', 
         borderRadius: '12px', 
         border: '1px solid rgba(255,255,255,0.05)', 
         background: 'rgba(255,255,255,0.02)', 
@@ -635,5 +637,5 @@ const styles = {
       actionRow: { 
         display: 'flex', 
         gap: '10px',
-        marginTop: 'auto' // Pushes buttons to the bottom of the padding area without extra air
+        marginTop: 'auto'
       }};

@@ -7,30 +7,29 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 🚀 Backend proxy URL (Render FastAPI)
+ 
   const API_BASE = process.env.NODE_ENV === 'production' 
-    ? 'https://plant-disease-app-qigz.onrender.com'  // Replace with YOUR Render URL
+    ? 'https://plant-disease-app-qigz.onrender.com' 
     : 'http://localhost:10000';
 
   const fetchFarmerNews = async () => {
     setLoading(true);
     setError(null);
     try {
-      // ✅ FIXED: Use backend proxy (no CORS issues)
+     
       const response = await axios.get(`${API_BASE}/api/news`, {
-        timeout: 15000 // 15s for backend proxy
+        timeout: 15000 
       });
 
       const gnewsArticles = response.data.articles || [];
-      
-      // Filter agriculture keywords
+    
       const keywords = ['farmer', 'farm', 'agriculture', 'plant disease', 'crop', 'crops', 'horticulture', 'pesticide', 'rural'];
       const filteredArticles = gnewsArticles.filter(article =>
         (article.title && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.title))) ||
         (article.description && keywords.some(k => new RegExp(`\\b${k}\\b`, 'i').test(article.description)))
       );
 
-      // Map GNews fields correctly
+    
       const formattedArticles = filteredArticles.map(article => ({
         title: article.title || 'No title available',
         description: article.description || '',

@@ -17,7 +17,7 @@ function App() {
   const [scrollToRecommended, setScrollToRecommended] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Track mouse for the spotlight effect
+ 
   useEffect(() => {
     const handleMouseMove = (e) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -62,7 +62,7 @@ function App() {
 
   return (
     <div style={styles.appWrapper}>
-      {/* 🟢 HYPER-ADVANCED GLOBAL CSS */}
+      
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         

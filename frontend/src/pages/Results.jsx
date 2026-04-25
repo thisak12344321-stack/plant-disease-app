@@ -6,18 +6,18 @@ export default function Results({ result, goToPage }) {
 
   const handleDownloadPDF = async () => {
     if (resultsRef.current && result) {
-      // Wait for Google Fonts to load so they don't appear as blank/default blocks
+      
       await document.fonts.ready;
 
       const element = resultsRef.current;
       const opt = {
-        margin: [0.3, 0.3, 0.3, 0.3], // Top, left, bottom, right
+        margin: [0.3, 0.3, 0.3, 0.3], 
         filename: 'plant_diagnosis_report.pdf',
         image: { type: 'jpeg', quality: 1.0 },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
-          backgroundColor: '#050806', // Matches your UI background
+          backgroundColor: '#050806',
           letterRendering: true,
           scrollY: 0,
           windowWidth: document.documentElement.offsetWidth

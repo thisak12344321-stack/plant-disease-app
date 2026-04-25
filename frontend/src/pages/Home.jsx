@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Assets (Assuming these paths are correct in your project)
+
 import leafHealthy from '../assets/leafHealthy.jpg';
 import plantCare from '../assets/plantCare.jpg';
 import soilTips from '../assets/soilTips.jpg';
@@ -200,7 +200,7 @@ export default function Home({ goToPage }) {
 const styles = {
   mainContainer: {
     minHeight: '100vh',
-    backgroundColor: '#050806', // Obsidian black
+    backgroundColor: '#050806', 
     color: '#e0f2f1',
     padding: '20px',
     fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif",

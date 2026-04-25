@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// Offline tips images
+
 import tipWater from '../assets/tipWater.jpg';
 import tipSunlight from '../assets/tipSunlight.png';
 import tipSoil from '../assets/tipSoil.png';
@@ -188,7 +188,7 @@ const styles = {
     alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden'
   },
   
-  // Idle Styles
+
   idleState: { textAlign: 'center' },
   scannerIcon: {
     width: '100px', height: '100px', margin: '0 auto 30px',
@@ -202,7 +202,7 @@ const styles = {
   mainPrompt: { fontSize: '1.8rem', fontWeight: '800', margin: '0 0 10px 0' },
   subPrompt: { color: '#4ADE80', fontSize: '0.9rem', opacity: 0.7, fontWeight: '600' },
 
-  // Scan Styles
+
   scanContainer: { textAlign: 'center' },
   holoFrame: {
     width: '240px', height: '240px', borderRadius: '30px',
@@ -215,7 +215,7 @@ const styles = {
     position: 'absolute', width: '100%', height: '6px',
     background: 'linear-gradient(90deg, transparent, #4ADE80, transparent)',
     boxShadow: '0 0 25px #4ADE80',
-    animation: 'slowLaser 3.5s infinite linear' // Slowed down significantly
+    animation: 'slowLaser 3.5s infinite linear' 
   },
   dataTag: {
     position: 'absolute', fontSize: '0.6rem', color: '#4ADE80',
@@ -235,7 +235,7 @@ const styles = {
     border: '1px solid rgba(239, 68, 68, 0.2)', textAlign: 'center', fontSize: '0.85rem'
   },
 
-  // Tips Styles
+
   tipsSection: { marginTop: '80px' },
   tipsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' },
   tipCard: { padding: '20px', display: 'flex', alignItems: 'center', gap: '15px' },

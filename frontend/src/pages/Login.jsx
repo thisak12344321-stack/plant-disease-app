@@ -1,5 +1,4 @@
-// ✅ COMPLETE login.jsx - FULLY FIXED & READY TO COPY-PASTE
-// All Render URLs fixed + perfect error handling + production ready
+
 
 import { useState, useEffect } from 'react';
 
@@ -183,7 +182,7 @@ export default function Login({ goToPage, setUser }) {
   const [resendTimer, setResendTimer] = useState(0);
   const [isLoginFlow, setIsLoginFlow] = useState(false);
 
-  // ✅ FIXED: Single source of truth - UPDATE THIS URL FROM YOUR RENDER DASHBOARD
+
   const BACKEND_URL = 'https://plant-disease-app-qigz.onrender.com';
 
   useEffect(() => {
