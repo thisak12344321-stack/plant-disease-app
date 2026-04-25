@@ -94,7 +94,7 @@ export default function Home({ goToPage }) {
           animate={{ opacity: 1, scale: 1 }}
           style={styles.heroGlass}
         >
-          <div style={styles.badge}>Powered by PlantCare AI</div>
+         
           <h1 style={styles.heroTitle}>Grow Smarter 🌿</h1>
           <p style={styles.heroSubtitle}>
             Instantly diagnose diseases and get pro-level treatment plans for your garden.
