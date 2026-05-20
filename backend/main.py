@@ -173,7 +173,7 @@ async def mock_payment(
         raise HTTPException(status_code=400, detail="User not found")
 
     if not shouldSucceed:
-        return {"status": "failed", "message": "Mock payment failed"}
+        return {"status": "failed", "message": "payment failed"}
 
     def gen_mock_id(prefix: str):
         return prefix + "_" + "".join(
@@ -233,9 +233,9 @@ async def mock_payment(
             <p>Thank you for your purchase!</p>
             """
         })
-        print(f"✅ Mock purchase confirmation sent to {userEmail}")
+        print(f"✅ purchase confirmation sent to {userEmail}")
     except Exception as e:
-        print(f"⚠️ Mock purchase email failed: {e}")
+        print(f"⚠️ purchase email failed: {e}")
 
     return {
         "status": "success",

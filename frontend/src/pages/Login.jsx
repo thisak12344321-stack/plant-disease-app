@@ -329,7 +329,7 @@ export default function Login({ goToPage, setUser }) {
           <div style={styles.meshGradient}></div>
           <div style={styles.heroContent}>
             
-            <h1 style={styles.brand}>Plant<br/>Care<span style={{color: '#10b981'}}>.</span></h1>
+            <h1 style={styles.brand}>Plant<br/>Care<span style={{color: '#10b981'}}></span></h1>
             <p style={styles.tagLine}>“Healthy leaves, happy crops—AI helps you take care the easy way"</p>
           </div>
         </div>
