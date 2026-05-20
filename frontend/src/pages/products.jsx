@@ -258,7 +258,7 @@ export default function Products({
       <div style={styles.section}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
           <h1 style={styles.heroTitle}>Botanical <span style={{ color: '#4ADE80' }}>Supply</span></h1>
-          <p style={styles.subText}>Browse our agricultural product catalog</p>
+          <p style={styles.subText}>Browse our agricultural-products</p>
         </div>
 
         <div style={styles.productGrid}>
@@ -275,7 +275,7 @@ export default function Products({
               <div style={styles.categoryTag}>{p.category}</div>
               <h3 style={styles.cardTitle}>{p.name}</h3>
               <p style={styles.priceTag}>₹{p.price}</p>
-              <button style={styles.buyBtn}>Initiate Purchase</button>
+              <button style={styles.buyBtn}>Buy</button>
             </motion.div>
           ))}
         </div>
