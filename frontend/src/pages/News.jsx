@@ -8,9 +8,9 @@ export default function News() {
   const [error, setError] = useState(null);
 
  
-  const API_BASE = process.env.NODE_ENV === 'production' 
-    ? 'https://plant-disease-app-qigz.onrender.com' 
-    : 'http://localhost:10000';
+  const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://plant-disease-app-qigz.onrender.com";
 
   const fetchFarmerNews = async () => {
     setLoading(true);
