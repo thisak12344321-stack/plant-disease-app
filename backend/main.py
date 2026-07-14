@@ -13,11 +13,11 @@ import resend
 from dotenv import load_dotenv
 
 
-# Load environment variables
+
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 
-# ✅ RESEND INIT
+
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -25,9 +25,13 @@ print("RESEND_API_KEY loaded:", bool(RESEND_API_KEY))
 
 
 app = FastAPI()
+@app.get("/")
+async def home():
+    return {
+        "message": "PlantDoc API is running successfully!"
+    }
 
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,20 +41,16 @@ app.add_middleware(
 )
 
 
-# MongoDB
+
 MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client.plantdoc
 users_collection = db.users
 
 
-# OTP Store
 otp_store = {}
 
 
-# -------------------------------
-# RESEND EMAIL FUNCTION
-# -------------------------------
 def send_email_otp(to_email: str, otp: str):
     try:
         if not RESEND_API_KEY:
@@ -75,9 +75,7 @@ def send_email_otp(to_email: str, otp: str):
         print(f"⚠️ Email failed: {e}")
 
 
-# -------------------------------
-# SEND OTP
-# -------------------------------
+
 @app.post("/send-otp")
 async def send_otp(background_tasks: BackgroundTasks, email: str = Form(...)):
     email = email.strip().lower()
@@ -88,9 +86,7 @@ async def send_otp(background_tasks: BackgroundTasks, email: str = Form(...)):
     return {"message": "OTP sent instantly", "email": email}
 
 
-# -------------------------------
-# VERIFY OTP
-# -------------------------------
+
 @app.post("/verify-otp")
 async def verify_otp(email: str = Form(...), otp: str = Form(...)):
     email = email.strip().lower()
@@ -103,9 +99,6 @@ async def verify_otp(email: str = Form(...), otp: str = Form(...)):
     raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
 
-# -------------------------------
-# SIGNUP
-# -------------------------------
 @app.post("/signup")
 async def signup(name: str = Form(...), email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
@@ -121,9 +114,6 @@ async def signup(name: str = Form(...), email: str = Form(...), password: str = 
     return {"message": "Signup successful"}
 
 
-# -------------------------------
-# LOGIN
-# -------------------------------
 @app.post("/login")
 async def login(email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
@@ -139,9 +129,6 @@ async def login(email: str = Form(...), password: str = Form(...)):
     }
 
 
-# -------------------------------
-# RESET PASSWORD
-# -------------------------------
 @app.post("/reset-password")
 async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     email = email.strip().lower()
@@ -157,9 +144,6 @@ async def reset_password(email: str = Form(...), new_password: str = Form(...)):
     return {"message": "Password updated successfully"}
 
 
-# -------------------------------
-# MOCK PAYMENT API (no Razorpay, includes UPI mock)
-# -------------------------------
 @app.post("/mock-payment")
 async def mock_payment(
     userEmail: str = Body(...),
@@ -184,7 +168,6 @@ async def mock_payment(
     razorpay_order_id = gen_mock_id("mock_order")
     razorpay_signature = gen_mock_id("mock_sign")
 
-    # Use .get() everywhere to avoid KeyError
     purchased_item = {
         "productName": product.get("productName") or product.get("name", "Unknown Product"),
         "productCategory": product.get("productCategory") or product.get("category", "Uncategorized"),
@@ -209,7 +192,7 @@ async def mock_payment(
         "currency": "INR",
     }
 
-    # Save to DB
+ 
     users_collection.update_one(
         {"email": userEmail},
         {"$push": {"purchasedItems": purchased_item}}
@@ -244,9 +227,7 @@ async def mock_payment(
     }
 
 
-# -------------------------------
-# OFFLINE ORDER (COD)
-# -------------------------------
+
 @app.post("/offline-order")
 async def offline_order(data: dict = Body(...)):
     userEmail = data.get("userEmail", "").strip().lower()
@@ -266,9 +247,7 @@ async def offline_order(data: dict = Body(...)):
     return {"message": "Order placed successfully (COD)"}
 
 
-# -------------------------------
-# PLANT DISEASE MODEL CONFIG
-# -------------------------------
+
 class_data = {
     "Pepper__bell___Bacterial_spot": {
         "plant": "Pepper", "disease": "Bacterial Spot",
@@ -375,12 +354,11 @@ class_names = list(class_data.keys())
 num_classes = len(class_names)
 
 
-# DEVICE & MODEL
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "plant_model.pt")
 model = None
 
-# SAFE MODEL LOADING
 if os.path.exists(MODEL_PATH):
     try:
         temp_model = models.mobilenet_v2(weights=None)
@@ -411,9 +389,7 @@ transform = transforms.Compose([
 ])
 
 
-# -------------------------------
-# PREDICT ROUTE
-# -------------------------------
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     if model is None:
@@ -455,9 +431,7 @@ async def predict(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-# -------------------------------
-# AGRICULTURE NEWS (GNews)
-# -------------------------------
+
 @app.get("/api/news")
 async def get_agriculture_news():
     GNEWS_KEY = os.getenv("GNEWS_API_KEY")
